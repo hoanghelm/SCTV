@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+      <PackageReference Include="Duende.IdentityServer" Version="7.1.1" />
+      <PackageReference Include="Duende.IdentityServer.AspNetIdentity" Version="7.1.1" />
+      <PackageReference Include="Duende.IdentityServer.EntityFramework" Version="7.1.1" />
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
+    </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Auth.Data\Auth.Data.csproj" />
+    <ProjectReference Include="..\Auth.Service\Auth.Service.csproj" />
+  </ItemGroup>
+
+</Project>

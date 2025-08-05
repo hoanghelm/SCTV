@@ -1,0 +1,41 @@
+{
+    "Routes": [
+        {
+            "DownstreamPathTemplate": "/connect/{cathAll}",
+            "DownstreamScheme": "http",
+            "DownstreamHostandPorts": [
+                {
+                    "Host": "auth-service",
+                    "Port": "80"
+                }
+            ],
+            "UpstreamHeaderTransform": {
+                "userId": ""
+            },
+            "UpstreamPathTemplate": "/connect/{cathAll}",
+            "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+        },
+        {
+            "DownstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "DownstreamScheme": "http",
+            "DownstreamHostandPorts": [
+                {
+                    "Host": "post-service",
+                    "Port": "80"
+                }
+            ],
+            "AuthenticationOptions": {
+                "AuthenticationProviderKey": "Bearer",
+                "AllowedScopes": []
+            },
+            "AddHeadersToRequest": {
+                "userId": "Claims[sub] > value > |"
+            },
+            "UpstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+        }
+    ],
+    "GlobalConfiguration": {
+        "RequestIdKey": "OcRequestId"
+    }
+}

@@ -1,0 +1,85 @@
+{
+    "Routes": [
+        {
+            "DownstreamPathTemplate": "/connect/{cathAll}",
+            "DownstreamScheme": "https",
+            "DownstreamHostandPorts": [
+                {
+                    "Host": "localhost",
+                    "Port": "44375"
+                }
+            ],
+            "UpstreamHeaderTransform": {
+                "userId": ""
+            },
+            "UpstreamPathTemplate": "/connect/{cathAll}",
+            "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+        },
+        {
+            "DownstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "DownstreamScheme": "https",
+            "DownstreamHostandPorts": [
+                {
+                    "Host": "localhost",
+                    "Port": "44322"
+                }
+            ],
+            "AuthenticationOptions": {
+                "AuthenticationProviderKey": "Bearer",
+                "AllowedScopes": []
+            },
+            "AddHeadersToRequest": {
+                "userId": "Claims[sub] > value > |",
+                "userEmail": "Claims[email] > value > |",
+                "userName": "Claims[name] > value > |"
+            },
+            "UpstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+        }
+    ],
+    "GlobalConfiguration": {
+        "RequestIdKey": "OcRequestId"
+    }
+}
+
+//{
+//	"Routes": [
+//		{
+//			"DownstreamPathTemplate": "/connect/{cathAll}",
+//			"DownstreamScheme": "http",
+//			"DownstreamHostandPorts": [
+//				{
+//					"Host": "auth-service",
+//					"Port": "80"
+//				}
+//			],
+//			"UpstreamHeaderTransform": {
+//				"userId": ""
+//			},
+//			"UpstreamPathTemplate": "/connect/{cathAll}",
+//			"UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+//		},
+//		{
+//			"DownstreamPathTemplate": "/api/v{version}/{cathAll}",
+//			"DownstreamScheme": "http",
+//			"DownstreamHostandPorts": [
+//				{
+//					"Host": "post-service",
+//					"Port": "80"
+//				}
+//			],
+//			"AuthenticationOptions": {
+//				"AuthenticationProviderKey": "Bearer",
+//				"AllowedScopes": []
+//			},
+//			"AddHeadersToRequest": {
+//				"userId": "Claims[sub] > value > |"
+//			},
+//			"UpstreamPathTemplate": "/api/v{version}/{cathAll}",
+//			"UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+//		}
+//	],
+//	"GlobalConfiguration": {
+//		"RequestIdKey": "OcRequestId"
+//	}
+//}

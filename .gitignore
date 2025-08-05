@@ -1,0 +1,134 @@
+# .NET Core & .NET Framework
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+*.log
+
+# Visual Studio
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+*.psmdcp
+project.lock.json
+project.fragment.lock.json
+artifacts/
+packages/
+*.symbols.nupkg
+*.nupkg.metadata
+
+# Build results
+*.dll
+*.exe
+*.app
+*.appx
+*.msi
+*.pdb
+
+# Coverage & Analysis
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.codecoverage
+*.lcov
+*.nyc_output/
+*.report.*
+
+# Logs
+*.log
+*.tlog
+
+# Database files
+*.mdf
+*.ldf
+
+# Entity Framework
+Migrations/
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# NCrunch
+*.ncrunch*
+.*crunch*.local.xml
+
+# StyleCop
+StyleCopReport.xml
+
+# User-specific files
+*.swp
+*~
+*.dbmdl
+*.dbml
+*.bak
+
+# DotCover
+.idea/.dotCover
+
+# Backup & temp
+*.bak
+*.tmp
+*.temp
+*.old
+
+# Others
+*.vspscc
+*.vssscc
+*.cache
+*.orig
+
+# Rider
+.idea/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Unity (if used with C#)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+
+# Local configuration files
+appsettings.*.json
+secrets.json
+
+# Ignore environment variables / secrets files
+.env
+.env.*
+
+# Ignore Docker files if not relevant
+*.container.cache
+
+# Ignore publish output
+publish/
+
+# Ignore test results
+*.trx
+*.TestResults
+
+# Ignore config transforms
+*.config.*

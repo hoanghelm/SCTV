@@ -1,0 +1,44 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:62161",
+      "sslPort": 44322
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+        "environmentVariables": {
+            "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=Post;Username=postgres;Password=postgres",
+            "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=Post;Username=postgres;Password=postgres",
+            "ASPNETCORE_ENVIRONMENT": "Development",
+            "REDIS_HOST": "127.0.0.1:6379,password=admin"
+        }
+    },
+    "Post.API": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+        "environmentVariables": {
+            "WRITE_DATABASE_CONNECTION_STRING": "Host=127.0.0.1;port=5432;Database=Post;Username=postgres;Password=postgres",
+            "READ_DATABASE_CONNECTION_STRING": "Host=127.0.0.1;port=5432;Database=Post;Username=postgres;Password=postgres",
+            "ASPNETCORE_ENVIRONMENT": "Development",
+            "REDIS_HOST": "127.0.0.1:6379,password=admin"
+        },
+      "dotnetRunMessages": "true",
+      "applicationUrl": "https://localhost:5003"
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
+      "publishAllPorts": true,
+      "useSSL": true
+    }
+  }
+}
