@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Post.Data.Context;
+using Streaming.Data.Context;
 
-namespace Post.Data.Context.Migrations
+namespace Streaming.Data.Context.Migrations
 {
     [DbContext(typeof(WriteDbContext))]
     [Migration("20210516024827_InitDB")]
