@@ -39,7 +39,7 @@ namespace Streaming.API
 			});
 
 			services.AddMediator();
-			services.AddServices();
+			services.AddServices(Configuration);
 			services.AddAutoMapper();
 			services.AddUnitOfWork();
 			services.AddHttpClient();

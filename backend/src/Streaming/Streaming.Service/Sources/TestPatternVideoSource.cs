@@ -5,7 +5,7 @@ using IVideoSource = Streaming.Service.Models.IVideoSource;
 using Font = System.Drawing.Font;
 using System.Drawing.Imaging;
 
-namespace Streaming.Service.Tests
+namespace Streaming.Service.Sources
 {
 	public class TestPatternVideoSource : IVideoSource
 	{

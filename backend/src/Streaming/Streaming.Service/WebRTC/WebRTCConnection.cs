@@ -1,8 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.Media;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
+using SIPSorceryMedia.FFmpeg;
 using Streaming.Service.Models;
-using Streaming.Service.Tests;
+using Streaming.Service.Sources;
 using IVideoSource = Streaming.Service.Models.IVideoSource;
 
 namespace Streaming.Service.WebRTC
@@ -14,8 +16,8 @@ namespace Streaming.Service.WebRTC
 		private readonly WebRTCConfiguration _config;
 		private readonly ILogger _logger;
 		private RTCPeerConnection _peerConnection;
-		private MediaStreamTrack _videoTrack;
-		private IVideoSource _videoSource;
+		private IVideoSource _customVideoSource;
+		private VideoTestPatternSource _testPatternSource;
 		private CancellationTokenSource _cancellationTokenSource;
 		private DateTime _createdAt;
 		private long _framesSent;
@@ -54,36 +56,32 @@ namespace Streaming.Service.WebRTC
 				_logger.LogInformation($"Connection {_connectionId} state changed to: {state}");
 			};
 
-			_videoSource = await CreateVideoSourceAsync();
+			// For now, use a simple test pattern source that works with SIPSorcery
+			// This follows the pattern from the search results
+			var encoder = new FFmpegVideoEncoder();
+			_testPatternSource = new VideoTestPatternSource(encoder);
+			_testPatternSource.RestrictFormats(format => format.Codec == _config.VideoCodec);
 
 			// Create video track
-			var videoFormat = new VideoFormat(
-				_config.VideoCodec,
-				_config.VideoWidth,
-				_config.VideoHeight,
-				_config.VideoFrameRate
-			);
+			var videoTrack = new MediaStreamTrack(_testPatternSource.GetVideoSourceFormats(), MediaStreamStatusEnum.SendOnly);
 
-			_videoTrack = new MediaStreamTrack(
-				SDPMediaTypesEnum.video,
-				false,
-				new List<SDPAudioVideoMediaFormat> { new SDPAudioVideoMediaFormat(videoFormat) },
-				MediaStreamStatusEnum.SendOnly
-			);
+			// Hook up the video encoding - this is the correct event from SIPSorcery
+			_testPatternSource.OnVideoSourceEncodedSample += _peerConnection.SendVideo;
 
-			_videoTrack.OnVideoSourceEncodedSample += _peerConnection.SendVideo;
+			_peerConnection.addTrack(videoTrack);
 
-			_peerConnection.addTrack(_videoTrack);
+			// Also initialize our custom source for future enhancement
+			_customVideoSource = await CreateVideoSourceAsync();
 
-			StartVideoStream();
+			// Start the test pattern for now
+			await _testPatternSource.StartVideo();
 		}
 
 		private async Task<IVideoSource> CreateVideoSourceAsync()
 		{
 			if (_streamSource.StartsWith("rtsp://") || _streamSource.StartsWith("http://"))
 			{
-				var ffmpegSource = new FFmpegVideoStreamSource(_streamSource, _config.VideoFrameRate);
-				return ffmpegSource;
+				return new FFmpegVideoStreamSource(_streamSource, _config.VideoFrameRate);
 			}
 			else if (_streamSource.StartsWith("test://"))
 			{
@@ -97,39 +95,6 @@ namespace Streaming.Service.WebRTC
 			{
 				throw new NotSupportedException($"Stream source type not supported: {_streamSource}");
 			}
-		}
-
-		private void StartVideoStream()
-		{
-			Task.Run(async () =>
-			{
-				var frameInterval = 1000 / _config.VideoFrameRate;
-
-				while (!_cancellationTokenSource.Token.IsCancellationRequested)
-				{
-					try
-					{
-						var frame = await _videoSource.GetNextFrameAsync();
-						if (frame != null)
-						{
-							_videoTrack.ExternalVideoSourceRawSample(
-								(uint)frame.Duration,
-								frame.Width,
-								frame.Height,
-								frame.Data,
-								frame.Format
-							);
-							_framesSent++;
-						}
-
-						await Task.Delay(frameInterval, _cancellationTokenSource.Token);
-					}
-					catch (Exception ex)
-					{
-						_logger.LogError(ex, $"Error in video stream for connection {_connectionId}");
-					}
-				}
-			}, _cancellationTokenSource.Token);
 		}
 
 		public async Task<RTCSessionDescriptionInit> CreateOfferAsync()
@@ -182,7 +147,8 @@ namespace Streaming.Service.WebRTC
 		public async Task CloseAsync()
 		{
 			_cancellationTokenSource?.Cancel();
-			_videoSource?.Stop();
+			_customVideoSource?.Stop();
+			await _testPatternSource?.CloseVideo();
 			_peerConnection?.close();
 		}
 
@@ -190,7 +156,8 @@ namespace Streaming.Service.WebRTC
 		{
 			CloseAsync().Wait();
 			_cancellationTokenSource?.Dispose();
-			_videoSource?.Dispose();
+			_customVideoSource?.Dispose();
+			_testPatternSource?.Dispose();
 			_peerConnection?.Dispose();
 		}
 	}

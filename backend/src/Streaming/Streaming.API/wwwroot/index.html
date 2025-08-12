@@ -1,0 +1,753 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV Stream Viewer - Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #0f1419;
+            color: #e1e8ed;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1d9bf0;
+        }
+
+        .controls {
+            background-color: #1a2633;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        label {
+            min-width: 120px;
+            font-weight: 500;
+        }
+
+        input, select, button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #2f3336;
+            background-color: #0f1419;
+            color: #e1e8ed;
+            font-size: 14px;
+        }
+
+        input, select {
+            flex: 1;
+        }
+
+        button {
+            background-color: #1d9bf0;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            min-width: 100px;
+        }
+
+            button:hover {
+                background-color: #1a8cd8;
+            }
+
+            button:disabled {
+                background-color: #536471;
+                cursor: not-allowed;
+            }
+
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+            .status.connected {
+                background-color: #00ba7c;
+                color: white;
+            }
+
+            .status.disconnected {
+                background-color: #f91880;
+                color: white;
+            }
+
+            .status.connecting {
+                background-color: #f7b731;
+                color: black;
+            }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .video-container {
+            background-color: #1a2633;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .video-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .video-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .video-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: #2f3336;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background-color: #000;
+        }
+
+        .detection-overlay {
+            position: relative;
+            margin-top: -5px;
+        }
+
+        .detection-box {
+            position: absolute;
+            border: 2px solid #00ff00;
+            background-color: rgba(0, 255, 0, 0.1);
+            pointer-events: none;
+        }
+
+        .detection-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background-color: #00ff00;
+            color: black;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+
+        .stats {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #8b98a5;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .stat-item {
+            background-color: #2f3336;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .notifications {
+            background-color: #1a2633;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .notification {
+            background-color: #2f3336;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .notification.detection {
+                border-left: 4px solid #00ba7c;
+            }
+
+            .notification.error {
+                border-left: 4px solid #f91880;
+            }
+
+        .notification-time {
+            font-size: 11px;
+            color: #8b98a5;
+        }
+
+        .detection-image {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .modal img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 CCTV Stream Viewer - Test Client</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>API URL:</label>
+                <input type="text" id="apiUrl" value="http://localhost:5004" placeholder="http://localhost:5004">
+            </div>
+            <div class="control-group">
+                <label>Auth Token:</label>
+                <input type="text" id="authToken" placeholder="Bearer token (optional for test)">
+            </div>
+            <div class="control-group">
+                <label>Camera:</label>
+                <select id="cameraSelect">
+                    <option value="">Select a camera...</option>
+                </select>
+                <button id="refreshCameras">Refresh</button>
+                <button id="connectBtn">Connect</button>
+                <button id="disconnectBtn" disabled>Disconnect</button>
+            </div>
+            <div class="control-group">
+                <label>Test Mode:</label>
+                <button id="createTestStream">Create Test Stream</button>
+                <button id="loadVideoFile">Load Video File</button>
+                <input type="file" id="videoFileInput" accept="video/*" style="display: none;">
+            </div>
+        </div>
+
+        <div class="status disconnected" id="connectionStatus">
+            Not Connected
+        </div>
+
+        <div class="video-grid" id="videoGrid">
+            <!-- Video streams will be added here dynamically -->
+        </div>
+
+        <div class="notifications">
+            <h3>Notifications</h3>
+            <div id="notificationList"></div>
+        </div>
+    </div>
+
+    <!-- Modal for detection images -->
+    <div id="imageModal" class="modal">
+        <span class="close-modal">&times;</span>
+        <div class="modal-content">
+            <img id="modalImage" src="" alt="Detection">
+        </div>
+    </div>
+
+    <!-- Include SignalR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+
+    <script>
+        // Configuration
+        const config = {
+            apiUrl: 'http://localhost:5004',
+            authToken: '',
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
+        };
+
+        // State
+        let signalRConnection = null;
+        let peerConnections = {};
+        let cameras = [];
+        let currentCameraId = null;
+
+        // UI Elements
+        const apiUrlInput = document.getElementById('apiUrl');
+        const authTokenInput = document.getElementById('authToken');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const videoGrid = document.getElementById('videoGrid');
+        const notificationList = document.getElementById('notificationList');
+        const createTestStreamBtn = document.getElementById('createTestStream');
+        const loadVideoFileBtn = document.getElementById('loadVideoFile');
+        const videoFileInput = document.getElementById('videoFileInput');
+        const refreshCamerasBtn = document.getElementById('refreshCameras');
+
+        // Initialize
+        async function initialize() {
+            apiUrlInput.value = config.apiUrl;
+            await loadCameras();
+
+            // Event listeners
+            connectBtn.addEventListener('click', connect);
+            disconnectBtn.addEventListener('click', disconnect);
+            createTestStreamBtn.addEventListener('click', createTestStream);
+            loadVideoFileBtn.addEventListener('click', () => videoFileInput.click());
+            videoFileInput.addEventListener('change', handleVideoFileSelect);
+            refreshCamerasBtn.addEventListener('click', loadCameras);
+
+            // Modal
+            const modal = document.getElementById('imageModal');
+            const closeModal = document.querySelector('.close-modal');
+            closeModal.addEventListener('click', () => modal.style.display = 'none');
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) modal.style.display = 'none';
+            });
+        }
+
+        // Load available cameras
+        async function loadCameras() {
+            try {
+                const response = await fetch(`${apiUrlInput.value}/api/v1/stream/cameras`);
+                if (!response.ok) throw new Error('Failed to load cameras');
+
+                const data = await response.json();
+                cameras = data.items || [];
+
+                // Update select
+                cameraSelect.innerHTML = '<option value="">Select a camera...</option>';
+                cameras.forEach(camera => {
+                    const option = document.createElement('option');
+                    option.value = camera.id;
+                    option.textContent = `${camera.name} (${camera.location})`;
+                    cameraSelect.appendChild(option);
+                });
+
+                addNotification('Loaded ' + cameras.length + ' cameras', 'info');
+            } catch (error) {
+                console.error('Error loading cameras:', error);
+                addNotification('Failed to load cameras: ' + error.message, 'error');
+            }
+        }
+
+        // Connect to SignalR and WebRTC
+        async function connect() {
+            const cameraId = cameraSelect.value;
+            if (!cameraId) {
+                alert('Please select a camera');
+                return;
+            }
+
+            try {
+                updateStatus('connecting', 'Connecting...');
+
+                // Initialize SignalR
+                signalRConnection = new signalR.HubConnectionBuilder()
+                    .withUrl(`${apiUrlInput.value}/streamingHub`, {
+                        accessTokenFactory: () => authTokenInput.value.replace('Bearer ', '')
+                    })
+                    .withAutomaticReconnect()
+                    .build();
+
+                // SignalR event handlers
+                signalRConnection.on('PersonDetected', handlePersonDetection);
+                signalRConnection.on('AlertNotification', handleAlertNotification);
+
+                await signalRConnection.start();
+                console.log('SignalR connected');
+
+                // Request camera stream
+                currentCameraId = cameraId;
+                const response = await signalRConnection.invoke('RequestCameraStream', cameraId);
+
+                if (response.success) {
+                    await setupWebRTC(cameraId, response.data);
+                    updateStatus('connected', 'Connected');
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                } else {
+                    throw new Error(response.error || 'Failed to request stream');
+                }
+            } catch (error) {
+                console.error('Connection error:', error);
+                updateStatus('disconnected', 'Connection failed: ' + error.message);
+                addNotification('Connection failed: ' + error.message, 'error');
+            }
+        }
+
+        // Setup WebRTC connection
+        async function setupWebRTC(cameraId, offer) {
+            try {
+                // Create video container
+                const container = createVideoContainer(cameraId);
+                const video = container.querySelector('video');
+
+                // Create peer connection
+                const pc = new RTCPeerConnection({ iceServers: config.iceServers });
+                peerConnections[cameraId] = pc;
+
+                // Handle incoming stream
+                pc.ontrack = (event) => {
+                    console.log('Received track:', event);
+                    video.srcObject = event.streams[0];
+                };
+
+                // Handle ICE candidates
+                pc.onicecandidate = async (event) => {
+                    if (event.candidate) {
+                        await signalRConnection.invoke('SendIceCandidate', cameraId, event.candidate);
+                    }
+                };
+
+                // Connection state monitoring
+                pc.onconnectionstatechange = () => {
+                    console.log('Connection state:', pc.connectionState);
+                    updateVideoStatus(cameraId, pc.connectionState);
+                };
+
+                // Set remote description
+                await pc.setRemoteDescription(offer);
+
+                // Create and send answer
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                const answerResponse = await signalRConnection.invoke('SendAnswer', cameraId, answer);
+                if (!answerResponse.success) {
+                    throw new Error('Failed to send answer');
+                }
+
+                // Start stats monitoring
+                startStatsMonitoring(cameraId, pc);
+
+            } catch (error) {
+                console.error('WebRTC setup error:', error);
+                throw error;
+            }
+        }
+
+        // Create video container
+        function createVideoContainer(cameraId) {
+            const camera = cameras.find(c => c.id === cameraId);
+
+            const container = document.createElement('div');
+            container.className = 'video-container';
+            container.id = `video-${cameraId}`;
+            container.innerHTML = `
+                <div class="video-header">
+                    <div class="video-title">${camera?.name || 'Camera'}</div>
+                    <div class="video-status" id="status-${cameraId}">Connecting...</div>
+                </div>
+                <video autoplay playsinline muted></video>
+                <div class="detection-overlay" id="detections-${cameraId}"></div>
+                <div class="stats" id="stats-${cameraId}">
+                    <div class="stat-item">FPS: <span id="fps-${cameraId}">0</span></div>
+                    <div class="stat-item">Bitrate: <span id="bitrate-${cameraId}">0</span> kbps</div>
+                    <div class="stat-item">Resolution: <span id="resolution-${cameraId}">-</span></div>
+                </div>
+            `;
+
+            videoGrid.appendChild(container);
+            return container;
+        }
+
+        // Update video status
+        function updateVideoStatus(cameraId, state) {
+            const statusEl = document.getElementById(`status-${cameraId}`);
+            if (statusEl) {
+                statusEl.textContent = state;
+                statusEl.style.backgroundColor = state === 'connected' ? '#00ba7c' :
+                                                 state === 'connecting' ? '#f7b731' : '#f91880';
+            }
+        }
+
+        // Monitor statistics
+        function startStatsMonitoring(cameraId, pc) {
+            setInterval(async () => {
+                const stats = await pc.getStats();
+                let videoStats = null;
+
+                stats.forEach(report => {
+                    if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+                        videoStats = report;
+                    }
+                });
+
+                if (videoStats) {
+                    // Update FPS
+                    const fps = videoStats.framesPerSecond || 0;
+                    document.getElementById(`fps-${cameraId}`).textContent = Math.round(fps);
+
+                    // Update bitrate
+                    const bitrate = (videoStats.bytesReceived * 8) / 1000; // kbps
+                    document.getElementById(`bitrate-${cameraId}`).textContent = Math.round(bitrate);
+
+                    // Update resolution
+                    const resolution = `${videoStats.frameWidth || '-'}x${videoStats.frameHeight || '-'}`;
+                    document.getElementById(`resolution-${cameraId}`).textContent = resolution;
+                }
+            }, 1000);
+        }
+
+        // Handle person detection events
+        function handlePersonDetection(event) {
+            console.log('Person detected:', event);
+
+            // Add notification
+            const time = new Date(event.timestamp).toLocaleTimeString();
+            const notification = document.createElement('div');
+            notification.className = 'notification detection';
+            notification.innerHTML = `
+                <div>
+                    <strong>Person Detected</strong> - ${event.cameraName}
+                    <div class="notification-time">${time}</div>
+                    <div>Detections: ${event.detections.length}</div>
+                </div>
+            `;
+
+            if (event.frameImageBase64) {
+                const img = document.createElement('img');
+                img.className = 'detection-image';
+                img.src = 'data:image/jpeg;base64,' + event.frameImageBase64;
+                img.onclick = () => showImageModal(img.src);
+                notification.appendChild(img);
+            }
+
+            notificationList.insertBefore(notification, notificationList.firstChild);
+
+            // Draw detection boxes
+            drawDetections(event.cameraId, event.detections);
+        }
+
+        // Draw detection boxes
+        function drawDetections(cameraId, detections) {
+            const overlay = document.getElementById(`detections-${cameraId}`);
+            if (!overlay) return;
+
+            overlay.innerHTML = '';
+
+            detections.forEach((detection, index) => {
+                const box = document.createElement('div');
+                box.className = 'detection-box';
+
+                // Convert normalized coordinates to pixels
+                const video = document.querySelector(`#video-${cameraId} video`);
+                if (video) {
+                    const videoWidth = video.videoWidth;
+                    const videoHeight = video.videoHeight;
+                    const displayWidth = video.offsetWidth;
+                    const displayHeight = video.offsetHeight;
+
+                    const scaleX = displayWidth / videoWidth;
+                    const scaleY = displayHeight / videoHeight;
+
+                    const [x1, y1, x2, y2] = detection.bbox || detection.boundingBox;
+
+                    box.style.left = (x1 * scaleX) + 'px';
+                    box.style.top = (y1 * scaleY) + 'px';
+                    box.style.width = ((x2 - x1) * scaleX) + 'px';
+                    box.style.height = ((y2 - y1) * scaleY) + 'px';
+
+                    const label = document.createElement('div');
+                    label.className = 'detection-label';
+                    label.textContent = `Person ${Math.round(detection.confidence * 100)}%`;
+                    box.appendChild(label);
+
+                    overlay.appendChild(box);
+                }
+            });
+
+            // Clear boxes after 3 seconds
+            setTimeout(() => {
+                overlay.innerHTML = '';
+            }, 3000);
+        }
+
+        // Handle alert notifications
+        function handleAlertNotification(alert) {
+            addNotification(alert.message, 'detection');
+        }
+
+        // Disconnect
+        async function disconnect() {
+            try {
+                // Stop WebRTC
+                for (const [cameraId, pc] of Object.entries(peerConnections)) {
+                    pc.close();
+
+                    // Remove video container
+                    const container = document.getElementById(`video-${cameraId}`);
+                    if (container) container.remove();
+                }
+                peerConnections = {};
+
+                // Stop SignalR
+                if (signalRConnection && currentCameraId) {
+                    await signalRConnection.invoke('StopCameraStream', currentCameraId);
+                    await signalRConnection.stop();
+                }
+
+                updateStatus('disconnected', 'Disconnected');
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                currentCameraId = null;
+
+            } catch (error) {
+                console.error('Disconnect error:', error);
+            }
+        }
+
+        // Create test stream
+        async function createTestStream() {
+            try {
+                const response = await fetch(`${apiUrlInput.value}/api/v1/stream/test/create-stream`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': authTokenInput.value
+                    },
+                    body: JSON.stringify({
+                        name: 'Test Pattern Stream',
+                        type: 'pattern'
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to create test stream');
+
+                const data = await response.json();
+                addNotification('Test stream created successfully', 'info');
+                await loadCameras();
+
+            } catch (error) {
+                console.error('Error creating test stream:', error);
+                addNotification('Failed to create test stream: ' + error.message, 'error');
+            }
+        }
+
+        // Handle video file selection
+        async function handleVideoFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('video', file);
+                formData.append('name', 'Video File Stream - ' + file.name);
+
+                const response = await fetch(`${apiUrlInput.value}/api/v1/stream/test/upload-video`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': authTokenInput.value
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Failed to upload video');
+
+                addNotification('Video uploaded successfully', 'info');
+                await loadCameras();
+
+            } catch (error) {
+                console.error('Error uploading video:', error);
+                addNotification('Failed to upload video: ' + error.message, 'error');
+            }
+        }
+
+        // Update connection status
+        function updateStatus(state, message) {
+            connectionStatus.textContent = message;
+            connectionStatus.className = `status ${state}`;
+        }
+
+        // Add notification
+        function addNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div>
+                    <div>${message}</div>
+                    <div class="notification-time">${new Date().toLocaleTimeString()}</div>
+                </div>
+            `;
+
+            notificationList.insertBefore(notification, notificationList.firstChild);
+
+            // Limit notifications
+            while (notificationList.children.length > 50) {
+                notificationList.removeChild(notificationList.lastChild);
+            }
+        }
+
+        // Show image modal
+        function showImageModal(src) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImg.src = src;
+        }
+
+        // Initialize on load
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

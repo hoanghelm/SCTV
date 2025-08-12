@@ -17,7 +17,16 @@
                 "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "REDIS_HOST": "127.0.0.1:6379,password=admin"
+                "REDIS_HOST": "127.0.0.1:6379,password=admin",
+                "WEBRTC_VIDEO_WIDTH": "1280",
+                "WEBRTC_VIDEO_HEIGHT": "720",
+                "WEBRTC_VIDEO_FRAMERATE": "30",
+                "WEBRTC_VIDEO_CODEC": "VP8",
+                "WEBRTC_ICE_SERVERS": "stun:stun.l.google.com:19302",
+                "JWT_KEY": "streaming-super-secret-key-that-is-at-least-32-characters-long-for-security",
+                "JWT_ISSUER": "StreamingAPI",
+                "JWT_AUDIENCE": "StreamingAPI",
+                "JWT_EXPIRE_MINUTES": "60"
             }
         },
         "Streaming.API": {
@@ -28,7 +37,16 @@
                 "WRITE_DATABASE_CONNECTION_STRING": "Host=127.0.0.1;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "READ_DATABASE_CONNECTION_STRING": "Host=127.0.0.1;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "REDIS_HOST": "127.0.0.1:6379,password=admin"
+                "REDIS_HOST": "127.0.0.1:6379,password=admin",
+                "WEBRTC_VIDEO_WIDTH": "1280",
+                "WEBRTC_VIDEO_HEIGHT": "720",
+                "WEBRTC_VIDEO_FRAMERATE": "30",
+                "WEBRTC_VIDEO_CODEC": "VP8",
+                "WEBRTC_ICE_SERVERS": "stun:stun.l.google.com:19302",
+                "JWT_KEY": "streaming-super-secret-key-that-is-at-least-32-characters-long-for-security",
+                "JWT_ISSUER": "StreamingAPI",
+                "JWT_AUDIENCE": "StreamingAPI",
+                "JWT_EXPIRE_MINUTES": "60"
             },
             "dotnetRunMessages": "true",
             "applicationUrl": "https://localhost:5003"
@@ -38,7 +56,15 @@
             "launchBrowser": true,
             "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
             "publishAllPorts": true,
-            "useSSL": true
+            "useSSL": true,
+            "environmentVariables": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "WEBRTC_VIDEO_WIDTH": "1280",
+                "WEBRTC_VIDEO_HEIGHT": "720",
+                "WEBRTC_VIDEO_FRAMERATE": "30",
+                "WEBRTC_VIDEO_CODEC": "VP8",
+                "WEBRTC_ICE_SERVERS": "stun:stun.l.google.com:19302"
+            }
         }
     }
 }

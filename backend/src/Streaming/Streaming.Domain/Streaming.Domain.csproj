@@ -16,8 +16,4 @@
 		<ProjectReference Include="..\..\Shared\Paginate\Paginate.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="Entities\" />
-	</ItemGroup>
-
 </Project>
