@@ -17,7 +17,7 @@ namespace Streaming.Domain.Entities
 
 		[Required]
 		[MaxLength(450)]
-		public string UserId { get; set; }
+		public string? UserId { get; set; }
 
 		[MaxLength(50)]
 		public string NotificationType { get; set; } // Email, SMS, Push, SignalR
@@ -26,7 +26,7 @@ namespace Streaming.Domain.Entities
 
 		// Audit fields
 		public DateTime? CreatedAt { get; set; }
-		public string CreatedBy { get; set; }
+		public string? CreatedBy { get; set; }
 
 		// Navigation properties
 		public virtual AlertRule AlertRule { get; set; }

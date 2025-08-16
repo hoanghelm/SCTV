@@ -21,6 +21,8 @@ namespace Streaming.Infrastructure.Configures
 			services.AddDbContext<WriteDbContext>(opt => opt.UseNpgsql(writeConnectionString));
 			services.AddScoped<IUnitOfWork<WriteDbContext>, UnitOfWork<WriteDbContext>>();
 
+			services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<IUnitOfWork<WriteDbContext>>());
+
 			return services;
 		}
 	}

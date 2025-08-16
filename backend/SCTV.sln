@@ -56,6 +56,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Streaming.API", "src\Stream
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth.Data", "src\Auth\Auth.Data\Auth.Data.csproj", "{8A43EB7D-2C00-20E7-6D6E-08D1B909170D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Streaming.Migrations", "src\Migrations\Streaming.Migrations\Streaming.Migrations.csproj", "{C9157A30-4F9E-40F7-8BDD-7F1906451FD4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -134,6 +136,10 @@ Global
 		{8A43EB7D-2C00-20E7-6D6E-08D1B909170D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8A43EB7D-2C00-20E7-6D6E-08D1B909170D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8A43EB7D-2C00-20E7-6D6E-08D1B909170D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9157A30-4F9E-40F7-8BDD-7F1906451FD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9157A30-4F9E-40F7-8BDD-7F1906451FD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9157A30-4F9E-40F7-8BDD-7F1906451FD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9157A30-4F9E-40F7-8BDD-7F1906451FD4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -163,6 +169,7 @@ Global
 		{1CD8DD6D-59EC-432F-BB60-B91E5BAC0067} = {FBA886B1-57E9-445E-9E19-A37D657A8910}
 		{C25ECE1D-0D72-4F69-BCF4-D5A4A32E4293} = {FBA886B1-57E9-445E-9E19-A37D657A8910}
 		{8A43EB7D-2C00-20E7-6D6E-08D1B909170D} = {33FD97A3-DFA7-4547-A991-ACC9FB922E16}
+		{C9157A30-4F9E-40F7-8BDD-7F1906451FD4} = {75D8D09E-209A-4D05-A396-816E984C1C50}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E69F2BAE-EBBC-4794-9D67-E0944CAE8D1F}

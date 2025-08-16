@@ -8,9 +8,9 @@ namespace Streaming.Service.WebRTC
 	public interface IWebRTCManager
 	{
 		Task<WebRTCConnection> CreateConnectionAsync(string connectionId, string streamSource);
-		Task<RTCSessionDescriptionInit> CreateOfferAsync(string connectionId);
-		Task<bool> SetAnswerAsync(string connectionId, RTCSessionDescriptionInit answer);
-		Task<bool> AddIceCandidateAsync(string connectionId, RTCIceCandidateInit candidate);
+		RTCSessionDescriptionInit CreateOfferAsync(string connectionId);
+		bool SetAnswerAsync(string connectionId, RTCSessionDescriptionInit answer);
+		bool AddIceCandidateAsync(string connectionId, RTCIceCandidateInit candidate);
 		Task<bool> CloseConnectionAsync(string connectionId);
 		Dictionary<string, object> GetConnectionStats(string connectionId);
 	}
@@ -50,31 +50,31 @@ namespace Streaming.Service.WebRTC
 			}
 		}
 
-		public async Task<RTCSessionDescriptionInit> CreateOfferAsync(string connectionId)
+		public RTCSessionDescriptionInit CreateOfferAsync(string connectionId)
 		{
 			if (_connections.TryGetValue(connectionId, out var connection))
 			{
-				return await connection.CreateOfferAsync();
+				return connection.CreateOfferAsync();
 			}
 
 			throw new KeyNotFoundException($"Connection {connectionId} not found");
 		}
 
-		public async Task<bool> SetAnswerAsync(string connectionId, RTCSessionDescriptionInit answer)
+		public bool SetAnswerAsync(string connectionId, RTCSessionDescriptionInit answer)
 		{
 			if (_connections.TryGetValue(connectionId, out var connection))
 			{
-				return await connection.SetAnswerAsync(answer);
+				return connection.SetAnswerAsync(answer);
 			}
 
 			return false;
 		}
 
-		public async Task<bool> AddIceCandidateAsync(string connectionId, RTCIceCandidateInit candidate)
+		public bool AddIceCandidateAsync(string connectionId, RTCIceCandidateInit candidate)
 		{
 			if (_connections.TryGetValue(connectionId, out var connection))
 			{
-				return await connection.AddIceCandidateAsync(candidate);
+				return connection.AddIceCandidateAsync(candidate);
 			}
 
 			return false;
@@ -86,6 +86,7 @@ namespace Streaming.Service.WebRTC
 			{
 				await connection.CloseAsync();
 				connection.Dispose();
+				_logger.LogInformation($"Closed WebRTC connection {connectionId}");
 				return true;
 			}
 
@@ -104,9 +105,19 @@ namespace Streaming.Service.WebRTC
 
 		public void Dispose()
 		{
+			_logger.LogInformation("Disposing WebRTC Manager");
+
 			foreach (var connection in _connections.Values)
 			{
-				connection.Dispose();
+				try
+				{
+					connection.CloseAsync().Wait();
+					connection.Dispose();
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error disposing WebRTC connection");
+				}
 			}
 			_connections.Clear();
 		}

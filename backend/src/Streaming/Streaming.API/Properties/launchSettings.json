@@ -4,11 +4,55 @@
         "anonymousAuthentication": true,
         "iisExpress": {
             "applicationUrl": "http://localhost:62162",
-            "sslPort": 44323
+            "sslPort": 44322
         }
     },
     "$schema": "http://json.schemastore.org/launchsettings.json",
     "profiles": {
+        "http": {
+            "commandName": "Project",
+            "dotnetRunMessages": true,
+            "launchBrowser": true,
+            "launchUrl": "swagger",
+            "applicationUrl": "http://localhost:44322",
+            "environmentVariables": {
+                "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "REDIS_HOST": "127.0.0.1:6379,password=admin",
+                "WEBRTC_VIDEO_WIDTH": "1280",
+                "WEBRTC_VIDEO_HEIGHT": "720",
+                "WEBRTC_VIDEO_FRAMERATE": "30",
+                "WEBRTC_VIDEO_CODEC": "VP8",
+                "WEBRTC_ICE_SERVERS": "stun:stun.l.google.com:19302",
+                "JWT_KEY": "streaming-super-secret-key-that-is-at-least-32-characters-long-for-security",
+                "JWT_ISSUER": "StreamingAPI",
+                "JWT_AUDIENCE": "StreamingAPI",
+                "JWT_EXPIRE_MINUTES": "60"
+            }
+        },
+        "https": {
+            "commandName": "Project",
+            "dotnetRunMessages": true,
+            "launchBrowser": true,
+            "launchUrl": "swagger",
+            "applicationUrl": "https://localhost:44322",
+            "environmentVariables": {
+                "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "REDIS_HOST": "127.0.0.1:6379,password=admin",
+                "WEBRTC_VIDEO_WIDTH": "1280",
+                "WEBRTC_VIDEO_HEIGHT": "720",
+                "WEBRTC_VIDEO_FRAMERATE": "30",
+                "WEBRTC_VIDEO_CODEC": "VP8",
+                "WEBRTC_ICE_SERVERS": "stun:stun.l.google.com:19302",
+                "JWT_KEY": "streaming-super-secret-key-that-is-at-least-32-characters-long-for-security",
+                "JWT_ISSUER": "StreamingAPI",
+                "JWT_AUDIENCE": "StreamingAPI",
+                "JWT_EXPIRE_MINUTES": "60"
+            }
+        },
         "IIS Express": {
             "commandName": "IISExpress",
             "launchBrowser": true,
@@ -48,7 +92,7 @@
                 "JWT_AUDIENCE": "StreamingAPI",
                 "JWT_EXPIRE_MINUTES": "60"
             },
-            "dotnetRunMessages": "true",
+            "dotnetRunMessages": true,
             "applicationUrl": "https://localhost:5003"
         },
         "Docker": {

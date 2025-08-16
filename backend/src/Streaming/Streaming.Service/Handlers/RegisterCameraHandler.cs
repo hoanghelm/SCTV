@@ -30,49 +30,38 @@ namespace Streaming.Service.Handlers
 		{
 			try
 			{
-				// Check if camera with same name already exists
-				var existingCamera = await _unitOfWork.GetRepository<Camera>()
-					.SingleOrDefaultAsync(c => c.Name == request.Name, cancellationToken: cancellationToken);
-
-				if (existingCamera != null)
-				{
-					return ApiResult.Failed(HttpCode.BadRequest, "Camera with this name already exists");
-				}
-
 				var camera = new Camera
 				{
 					Id = Guid.NewGuid(),
 					Name = request.Name,
-					Description = request.Description,
+					Description = request.Description ?? string.Empty,
 					StreamUrl = request.StreamUrl,
-					Location = request.Location,
+					Location = request.Location ?? string.Empty,
 					Latitude = request.Latitude,
 					Longitude = request.Longitude,
-					CameraType = request.CameraType,
-					Brand = request.Brand,
-					Model = request.Model,
-					Resolution = request.Resolution,
+					CameraType = request.CameraType ?? "Fixed",
+					Brand = request.Brand ?? string.Empty,
+					Model = request.Model ?? string.Empty,
+					Resolution = request.Resolution ?? "1280x720",
 					HasAudio = request.HasAudio,
 					HasPTZ = request.HasPTZ,
 					HasNightVision = request.HasNightVision,
 					HasMotionDetection = request.HasMotionDetection,
 					Status = CameraStatus.Active.ToString(),
 					IsOnline = false,
-					CreatedBy = request.CreatedBy
+					CreatedAt = DateTime.UtcNow,
+					CreatedBy = request.CreatedBy ?? "System"
 				};
 
 				await _unitOfWork.GetRepository<Camera>().InsertAsync(camera, cancellationToken);
 				await _unitOfWork.CommitAsync();
 
-				_logger.LogInformation($"Camera {camera.Name} registered successfully with ID {camera.Id}");
-
-				var cameraViewModel = _mapper.Map<ViewModels.CameraViewModel>(camera);
-				return ApiResult.Succeeded(cameraViewModel);
+				return ApiResult.Succeeded(new { Id = camera.Id, Name = camera.Name });
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Error registering camera");
-				return ApiResult.Failed(HttpCode.InternalServerError, "Error registering camera");
+				return ApiResult.Failed(HttpCode.InternalServerError, ex.Message);
 			}
 		}
 	}

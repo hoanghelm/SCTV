@@ -141,6 +141,31 @@
             height: auto;
             border-radius: 8px;
             background-color: #000;
+            min-height: 300px;
+        }
+
+        .debug-panel {
+            background-color: #1a2633;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .debug-output {
+            background-color: #0f1419;
+            border: 1px solid #2f3336;
+            border-radius: 6px;
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+
+        .debug-controls {
+            margin-bottom: 10px;
         }
 
         .detection-overlay {
@@ -214,14 +239,6 @@
             color: #8b98a5;
         }
 
-        .detection-image {
-            width: 80px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
         .modal {
             display: none;
             position: fixed;
@@ -265,7 +282,7 @@
         <div class="controls">
             <div class="control-group">
                 <label>API URL:</label>
-                <input type="text" id="apiUrl" value="http://localhost:5004" placeholder="http://localhost:5004">
+                <input type="text" id="apiUrl" value="https://localhost:44322" placeholder="https://localhost:44322">
             </div>
             <div class="control-group">
                 <label>Auth Token:</label>
@@ -292,6 +309,15 @@
             Not Connected
         </div>
 
+        <div class="debug-panel">
+            <div class="debug-controls">
+                <h3>Debug Console</h3>
+                <button id="clearDebug">Clear</button>
+                <button id="exportDebug">Export Logs</button>
+            </div>
+            <div class="debug-output" id="debugOutput"></div>
+        </div>
+
         <div class="video-grid" id="videoGrid">
             <!-- Video streams will be added here dynamically -->
         </div>
@@ -314,9 +340,32 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
 
     <script>
+        // Enhanced debug logging
+        let debugMessages = [];
+
+        function debugLog(message, data = null) {
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] ${message}`;
+            if (data) {
+                console.log(logEntry, data);
+                debugMessages.push(logEntry + '\n' + JSON.stringify(data, null, 2));
+            } else {
+                console.log(logEntry);
+                debugMessages.push(logEntry);
+            }
+
+            updateDebugOutput();
+        }
+
+        function updateDebugOutput() {
+            const debugOutput = document.getElementById('debugOutput');
+            debugOutput.textContent = debugMessages.slice(-100).join('\n\n');
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+
         // Configuration
         const config = {
-            apiUrl: 'http://localhost:5004',
+            apiUrl: 'https://localhost:44322',
             authToken: '',
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' }
@@ -345,6 +394,7 @@
 
         // Initialize
         async function initialize() {
+            debugLog('Initializing application');
             apiUrlInput.value = config.apiUrl;
             await loadCameras();
 
@@ -356,6 +406,22 @@
             videoFileInput.addEventListener('change', handleVideoFileSelect);
             refreshCamerasBtn.addEventListener('click', loadCameras);
 
+            // Debug controls
+            document.getElementById('clearDebug').addEventListener('click', () => {
+                debugMessages = [];
+                updateDebugOutput();
+            });
+
+            document.getElementById('exportDebug').addEventListener('click', () => {
+                const blob = new Blob([debugMessages.join('\n\n')], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `cctv-debug-${new Date().toISOString()}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
             // Modal
             const modal = document.getElementById('imageModal');
             const closeModal = document.querySelector('.close-modal');
@@ -363,16 +429,21 @@
             window.addEventListener('click', (e) => {
                 if (e.target === modal) modal.style.display = 'none';
             });
+
+            debugLog('Application initialized');
         }
 
-        // Load available cameras
         async function loadCameras() {
             try {
+                debugLog('Loading cameras');
                 const response = await fetch(`${apiUrlInput.value}/api/v1/stream/cameras`);
                 if (!response.ok) throw new Error('Failed to load cameras');
 
                 const data = await response.json();
-                cameras = data.items || [];
+                debugLog('API Response', data);
+
+                // Fix: Access cameras from the correct path in response
+                cameras = data.result?.items || data.items || [];
 
                 // Update select
                 cameraSelect.innerHTML = '<option value="">Select a camera...</option>';
@@ -383,9 +454,10 @@
                     cameraSelect.appendChild(option);
                 });
 
+                debugLog(`Loaded ${cameras.length} cameras`);
                 addNotification('Loaded ' + cameras.length + ' cameras', 'info');
             } catch (error) {
-                console.error('Error loading cameras:', error);
+                debugLog('Error loading cameras', error);
                 addNotification('Failed to load cameras: ' + error.message, 'error');
             }
         }
@@ -399,6 +471,7 @@
             }
 
             try {
+                debugLog('Starting connection process', { cameraId });
                 updateStatus('connecting', 'Connecting...');
 
                 // Initialize SignalR
@@ -414,11 +487,13 @@
                 signalRConnection.on('AlertNotification', handleAlertNotification);
 
                 await signalRConnection.start();
-                console.log('SignalR connected');
+                debugLog('SignalR connected');
 
                 // Request camera stream
                 currentCameraId = cameraId;
+                debugLog('Requesting camera stream', { cameraId });
                 const response = await signalRConnection.invoke('RequestCameraStream', cameraId);
+                debugLog('Camera stream response', response);
 
                 if (response.success) {
                     await setupWebRTC(cameraId, response.data);
@@ -429,7 +504,7 @@
                     throw new Error(response.error || 'Failed to request stream');
                 }
             } catch (error) {
-                console.error('Connection error:', error);
+                debugLog('Connection error', error);
                 updateStatus('disconnected', 'Connection failed: ' + error.message);
                 addNotification('Connection failed: ' + error.message, 'error');
             }
@@ -438,50 +513,201 @@
         // Setup WebRTC connection
         async function setupWebRTC(cameraId, offer) {
             try {
+                debugLog('Setting up WebRTC', { cameraId, offer });
+
                 // Create video container
                 const container = createVideoContainer(cameraId);
                 const video = container.querySelector('video');
 
-                // Create peer connection
-                const pc = new RTCPeerConnection({ iceServers: config.iceServers });
+                // Add comprehensive video event listeners
+                video.addEventListener('loadstart', () => debugLog('Video: loadstart event'));
+                video.addEventListener('loadedmetadata', () => {
+                    debugLog('Video: metadata loaded', {
+                        videoWidth: video.videoWidth,
+                        videoHeight: video.videoHeight,
+                        duration: video.duration
+                    });
+                });
+                video.addEventListener('loadeddata', () => debugLog('Video: data loaded'));
+                video.addEventListener('canplay', () => debugLog('Video: can play'));
+                video.addEventListener('canplaythrough', () => debugLog('Video: can play through'));
+                video.addEventListener('playing', () => debugLog('Video: is playing'));
+                video.addEventListener('play', () => debugLog('Video: play event'));
+                video.addEventListener('pause', () => debugLog('Video: pause event'));
+                video.addEventListener('waiting', () => debugLog('Video: waiting for data'));
+                video.addEventListener('stalled', () => debugLog('Video: stalled'));
+                video.addEventListener('suspend', () => debugLog('Video: suspend'));
+                video.addEventListener('abort', () => debugLog('Video: abort'));
+                video.addEventListener('error', (e) => {
+                    debugLog('Video error', {
+                        error: e.target.error,
+                        code: e.target.error?.code,
+                        message: e.target.error?.message
+                    });
+                });
+
+                // Create peer connection with enhanced configuration
+                const pcConfig = {
+                    iceServers: config.iceServers,
+                    iceCandidatePoolSize: 10
+                };
+                const pc = new RTCPeerConnection(pcConfig);
                 peerConnections[cameraId] = pc;
 
-                // Handle incoming stream
-                pc.ontrack = (event) => {
-                    console.log('Received track:', event);
-                    video.srcObject = event.streams[0];
-                };
+                debugLog('Peer connection created', pcConfig);
 
-                // Handle ICE candidates
-                pc.onicecandidate = async (event) => {
-                    if (event.candidate) {
-                        await signalRConnection.invoke('SendIceCandidate', cameraId, event.candidate);
+                // Enhanced track handling
+                pc.ontrack = (event) => {
+                    debugLog('Received track event', {
+                        track: event.track,
+                        streams: event.streams,
+                        kind: event.track.kind,
+                        readyState: event.track.readyState,
+                        enabled: event.track.enabled,
+                        muted: event.track.muted
+                    });
+
+                    if (event.streams && event.streams.length > 0) {
+                        const stream = event.streams[0];
+                        debugLog('Setting video srcObject', {
+                            streamId: stream.id,
+                            tracks: stream.getTracks().map(t => ({
+                                kind: t.kind,
+                                id: t.id,
+                                readyState: t.readyState,
+                                enabled: t.enabled,
+                                muted: t.muted
+                            }))
+                        });
+
+                        video.srcObject = stream;
+
+                        // Force play with error handling
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                debugLog('Video started playing successfully');
+                            }).catch(err => {
+                                debugLog('Failed to play video', err);
+
+                                // Try to handle autoplay policy
+                                if (err.name === 'NotAllowedError') {
+                                    debugLog('Autoplay prevented, adding user interaction handler');
+                                    const playButton = document.createElement('button');
+                                    playButton.textContent = 'Click to Play Video';
+                                    playButton.style.position = 'absolute';
+                                    playButton.style.top = '50%';
+                                    playButton.style.left = '50%';
+                                    playButton.style.transform = 'translate(-50%, -50%)';
+                                    playButton.style.zIndex = '1000';
+                                    playButton.onclick = () => {
+                                        video.play();
+                                        playButton.remove();
+                                    };
+                                    container.appendChild(playButton);
+                                }
+                            });
+                        }
+                    } else {
+                        debugLog('No streams in track event - this is unusual');
                     }
                 };
 
-                // Connection state monitoring
-                pc.onconnectionstatechange = () => {
-                    console.log('Connection state:', pc.connectionState);
-                    updateVideoStatus(cameraId, pc.connectionState);
+                // Enhanced ICE candidate handling
+                pc.onicecandidate = async (event) => {
+                    if (event.candidate) {
+                        debugLog('Sending ICE candidate', event.candidate);
+
+                        const candidateData = {
+                            candidate: event.candidate.candidate,
+                            sdpMid: event.candidate.sdpMid,
+                            sdpMLineIndex: event.candidate.sdpMLineIndex
+                        };
+
+                        try {
+                            const result = await signalRConnection.invoke('SendIceCandidate', cameraId, candidateData);
+                            debugLog('ICE candidate sent', result);
+                        } catch (err) {
+                            debugLog('Failed to send ICE candidate', err);
+                        }
+                    } else {
+                        debugLog('ICE gathering complete');
+                    }
                 };
 
+                // Enhanced connection state monitoring
+                pc.onconnectionstatechange = () => {
+                    debugLog('Connection state changed', pc.connectionState);
+                    updateVideoStatus(cameraId, pc.connectionState);
+
+                    if (pc.connectionState === 'connected') {
+                        debugLog('WebRTC connection established successfully');
+                        // Check receivers
+                        const receivers = pc.getReceivers();
+                        debugLog('Active receivers', receivers.map(r => ({
+                            track: r.track ? {
+                                kind: r.track.kind,
+                                id: r.track.id,
+                                readyState: r.track.readyState,
+                                enabled: r.track.enabled,
+                                muted: r.track.muted
+                            } : null
+                        })));
+                    } else if (pc.connectionState === 'failed') {
+                        debugLog('WebRTC connection failed');
+                    }
+                };
+
+                // Monitor ICE states
+                pc.oniceconnectionstatechange = () => {
+                    debugLog('ICE connection state', pc.iceConnectionState);
+                };
+
+                pc.onicegatheringstatechange = () => {
+                    debugLog('ICE gathering state', pc.iceGatheringState);
+                };
+
+                // Add data channel for debugging (optional)
+                const dataChannel = pc.createDataChannel('debug', { ordered: true });
+                dataChannel.onopen = () => debugLog('Data channel opened');
+                dataChannel.onclose = () => debugLog('Data channel closed');
+                dataChannel.onerror = (error) => debugLog('Data channel error', error);
+
                 // Set remote description
+                debugLog('Setting remote description');
                 await pc.setRemoteDescription(offer);
+                debugLog('Remote description set successfully');
 
                 // Create and send answer
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
+                debugLog('Creating answer');
+                const answer = await pc.createAnswer({
+                    offerToReceiveVideo: true,
+                    offerToReceiveAudio: false
+                });
+                debugLog('Answer created', answer);
 
-                const answerResponse = await signalRConnection.invoke('SendAnswer', cameraId, answer);
+                await pc.setLocalDescription(answer);
+                debugLog('Local description set');
+
+                // Convert answer to plain object for SignalR
+                const answerData = {
+                    type: answer.type,
+                    sdp: answer.sdp
+                };
+
+                debugLog('Sending answer to SignalR');
+                const answerResponse = await signalRConnection.invoke('SendAnswer', cameraId, answerData);
+                debugLog('Answer response', answerResponse);
+
                 if (!answerResponse.success) {
-                    throw new Error('Failed to send answer');
+                    throw new Error('Failed to send answer: ' + (answerResponse.error || 'Unknown error'));
                 }
 
                 // Start stats monitoring
                 startStatsMonitoring(cameraId, pc);
 
             } catch (error) {
-                console.error('WebRTC setup error:', error);
+                debugLog('WebRTC setup error', error);
                 throw error;
             }
         }
@@ -494,18 +720,18 @@
             container.className = 'video-container';
             container.id = `video-${cameraId}`;
             container.innerHTML = `
-                <div class="video-header">
-                    <div class="video-title">${camera?.name || 'Camera'}</div>
-                    <div class="video-status" id="status-${cameraId}">Connecting...</div>
-                </div>
-                <video autoplay playsinline muted></video>
-                <div class="detection-overlay" id="detections-${cameraId}"></div>
-                <div class="stats" id="stats-${cameraId}">
-                    <div class="stat-item">FPS: <span id="fps-${cameraId}">0</span></div>
-                    <div class="stat-item">Bitrate: <span id="bitrate-${cameraId}">0</span> kbps</div>
-                    <div class="stat-item">Resolution: <span id="resolution-${cameraId}">-</span></div>
-                </div>
-            `;
+                    <div class="video-header">
+                        <div class="video-title">${camera?.name || 'Camera'}</div>
+                        <div class="video-status" id="status-${cameraId}">Connecting...</div>
+                    </div>
+                    <video autoplay playsinline muted controls></video>
+                    <div class="detection-overlay" id="detections-${cameraId}"></div>
+                    <div class="stats" id="stats-${cameraId}">
+                        <div class="stat-item">FPS: <span id="fps-${cameraId}">0</span></div>
+                        <div class="stat-item">Bitrate: <span id="bitrate-${cameraId}">0</span> kbps</div>
+                        <div class="stat-item">Resolution: <span id="resolution-${cameraId}">-</span></div>
+                    </div>
+                `;
 
             videoGrid.appendChild(container);
             return container;
@@ -517,53 +743,96 @@
             if (statusEl) {
                 statusEl.textContent = state;
                 statusEl.style.backgroundColor = state === 'connected' ? '#00ba7c' :
-                                                 state === 'connecting' ? '#f7b731' : '#f91880';
+                    state === 'connecting' ? '#f7b731' : '#f91880';
             }
         }
 
         // Monitor statistics
         function startStatsMonitoring(cameraId, pc) {
-            setInterval(async () => {
-                const stats = await pc.getStats();
-                let videoStats = null;
-
-                stats.forEach(report => {
-                    if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
-                        videoStats = report;
-                    }
-                });
-
-                if (videoStats) {
-                    // Update FPS
-                    const fps = videoStats.framesPerSecond || 0;
-                    document.getElementById(`fps-${cameraId}`).textContent = Math.round(fps);
-
-                    // Update bitrate
-                    const bitrate = (videoStats.bytesReceived * 8) / 1000; // kbps
-                    document.getElementById(`bitrate-${cameraId}`).textContent = Math.round(bitrate);
-
-                    // Update resolution
-                    const resolution = `${videoStats.frameWidth || '-'}x${videoStats.frameHeight || '-'}`;
-                    document.getElementById(`resolution-${cameraId}`).textContent = resolution;
+            const statsInterval = setInterval(async () => {
+                if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+                    clearInterval(statsInterval);
+                    return;
                 }
-            }, 1000);
+
+                try {
+                    const stats = await pc.getStats();
+                    let inboundVideoStats = null;
+                    let allStats = {};
+
+                    stats.forEach(report => {
+                        allStats[report.type] = allStats[report.type] || [];
+                        allStats[report.type].push(report);
+
+                        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                            inboundVideoStats = report;
+                        }
+                    });
+
+                    // Log all stats periodically for debugging
+                    if (Object.keys(allStats).length > 0) {
+                        debugLog('WebRTC Stats Summary', {
+                            types: Object.keys(allStats),
+                            inboundRtp: allStats['inbound-rtp']?.length || 0,
+                            candidatePairs: allStats['candidate-pair']?.length || 0,
+                            localCandidates: allStats['local-candidate']?.length || 0,
+                            remoteCandidates: allStats['remote-candidate']?.length || 0
+                        });
+                    }
+
+                    if (inboundVideoStats) {
+                        debugLog('Video stats', {
+                            bytesReceived: inboundVideoStats.bytesReceived,
+                            packetsReceived: inboundVideoStats.packetsReceived,
+                            framesDecoded: inboundVideoStats.framesDecoded,
+                            framesDropped: inboundVideoStats.framesDropped,
+                            frameWidth: inboundVideoStats.frameWidth,
+                            frameHeight: inboundVideoStats.frameHeight,
+                            framesPerSecond: inboundVideoStats.framesPerSecond
+                        });
+
+                        // Update UI stats
+                        const fpsEl = document.getElementById(`fps-${cameraId}`);
+                        const bitrateEl = document.getElementById(`bitrate-${cameraId}`);
+                        const resolutionEl = document.getElementById(`resolution-${cameraId}`);
+
+                        if (fpsEl && inboundVideoStats.framesPerSecond) {
+                            fpsEl.textContent = Math.round(inboundVideoStats.framesPerSecond);
+                        }
+
+                        if (bitrateEl && inboundVideoStats.bytesReceived) {
+                            // Calculate bitrate (this is cumulative, so we'd need to track over time for accuracy)
+                            const bitrate = Math.round(inboundVideoStats.bytesReceived * 8 / 1000);
+                            bitrateEl.textContent = bitrate;
+                        }
+
+                        if (resolutionEl && inboundVideoStats.frameWidth && inboundVideoStats.frameHeight) {
+                            resolutionEl.textContent = `${inboundVideoStats.frameWidth}x${inboundVideoStats.frameHeight}`;
+                        }
+                    } else {
+                        debugLog('No inbound video stats available yet');
+                    }
+                } catch (err) {
+                    debugLog('Error getting stats', err);
+                }
+            }, 5000);
         }
 
         // Handle person detection events
         function handlePersonDetection(event) {
-            console.log('Person detected:', event);
+            debugLog('Person detected', event);
 
             // Add notification
             const time = new Date(event.timestamp).toLocaleTimeString();
             const notification = document.createElement('div');
             notification.className = 'notification detection';
             notification.innerHTML = `
-                <div>
-                    <strong>Person Detected</strong> - ${event.cameraName}
-                    <div class="notification-time">${time}</div>
-                    <div>Detections: ${event.detections.length}</div>
-                </div>
-            `;
+                    <div>
+                        <strong>Person Detected</strong> - ${event.cameraName}
+                        <div class="notification-time">${time}</div>
+                        <div>Detections: ${event.detections.length}</div>
+                    </div>
+                `;
 
             if (event.frameImageBase64) {
                 const img = document.createElement('img');
@@ -590,7 +859,6 @@
                 const box = document.createElement('div');
                 box.className = 'detection-box';
 
-                // Convert normalized coordinates to pixels
                 const video = document.querySelector(`#video-${cameraId} video`);
                 if (video) {
                     const videoWidth = video.videoWidth;
@@ -625,14 +893,18 @@
 
         // Handle alert notifications
         function handleAlertNotification(alert) {
+            debugLog('Alert notification', alert);
             addNotification(alert.message, 'detection');
         }
 
         // Disconnect
         async function disconnect() {
             try {
+                debugLog('Starting disconnect process');
+
                 // Stop WebRTC
                 for (const [cameraId, pc] of Object.entries(peerConnections)) {
+                    debugLog('Closing peer connection', { cameraId });
                     pc.close();
 
                     // Remove video container
@@ -643,6 +915,7 @@
 
                 // Stop SignalR
                 if (signalRConnection && currentCameraId) {
+                    debugLog('Stopping camera stream', { cameraId: currentCameraId });
                     await signalRConnection.invoke('StopCameraStream', currentCameraId);
                     await signalRConnection.stop();
                 }
@@ -652,14 +925,17 @@
                 disconnectBtn.disabled = true;
                 currentCameraId = null;
 
+                debugLog('Disconnect completed');
+
             } catch (error) {
-                console.error('Disconnect error:', error);
+                debugLog('Disconnect error', error);
             }
         }
 
         // Create test stream
         async function createTestStream() {
             try {
+                debugLog('Creating test stream');
                 const response = await fetch(`${apiUrlInput.value}/api/v1/stream/test/create-stream`, {
                     method: 'POST',
                     headers: {
@@ -675,11 +951,12 @@
                 if (!response.ok) throw new Error('Failed to create test stream');
 
                 const data = await response.json();
+                debugLog('Test stream created', data);
                 addNotification('Test stream created successfully', 'info');
                 await loadCameras();
 
             } catch (error) {
-                console.error('Error creating test stream:', error);
+                debugLog('Error creating test stream', error);
                 addNotification('Failed to create test stream: ' + error.message, 'error');
             }
         }
@@ -690,26 +967,34 @@
             if (!file) return;
 
             try {
-                const formData = new FormData();
-                formData.append('video', file);
-                formData.append('name', 'Video File Stream - ' + file.name);
+                debugLog('Processing video file', { name: file.name, size: file.size, type: file.type });
 
-                const response = await fetch(`${apiUrlInput.value}/api/v1/stream/test/upload-video`, {
+                const response = await fetch(`${apiUrlInput.value}/api/v1/stream/test/create-stream`, {
                     method: 'POST',
                     headers: {
+                        'Content-Type': 'application/json',
                         'Authorization': authTokenInput.value
                     },
-                    body: formData
+                    body: JSON.stringify({
+                        name: `Video File Test - ${file.name}`,
+                        type: 'pattern',
+                        videoFilePath: file.name
+                    })
                 });
 
-                if (!response.ok) throw new Error('Failed to upload video');
+                if (!response.ok) throw new Error('Failed to create video test stream');
 
-                addNotification('Video uploaded successfully', 'info');
+                const data = await response.json();
+                debugLog('Video file stream created', data);
+                addNotification(`Video file "${file.name}" added as test stream`, 'info');
                 await loadCameras();
 
+                // Clear the file input
+                event.target.value = '';
+
             } catch (error) {
-                console.error('Error uploading video:', error);
-                addNotification('Failed to upload video: ' + error.message, 'error');
+                debugLog('Error processing video file', error);
+                addNotification('Failed to process video file: ' + error.message, 'error');
             }
         }
 
@@ -717,18 +1002,21 @@
         function updateStatus(state, message) {
             connectionStatus.textContent = message;
             connectionStatus.className = `status ${state}`;
+            debugLog('Status updated', { state, message });
         }
 
         // Add notification
         function addNotification(message, type = 'info') {
+            debugLog('Notification', { message, type });
+
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.innerHTML = `
-                <div>
-                    <div>${message}</div>
-                    <div class="notification-time">${new Date().toLocaleTimeString()}</div>
-                </div>
-            `;
+                    <div>
+                        <div>${message}</div>
+                        <div class="notification-time">${new Date().toLocaleTimeString()}</div>
+                    </div>
+                `;
 
             notificationList.insertBefore(notification, notificationList.firstChild);
 
@@ -748,6 +1036,13 @@
 
         // Initialize on load
         window.addEventListener('load', initialize);
+
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            if (signalRConnection) {
+                disconnect();
+            }
+        });
     </script>
 </body>
 </html>

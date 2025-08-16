@@ -25,10 +25,10 @@ namespace Streaming.Domain.Entities
 		public string DetectionData { get; set; } // JSON data with bounding boxes, confidence, etc.
 
 		[MaxLength(500)]
-		public string FrameImageUrl { get; set; }
+		public string? FrameImageUrl { get; set; }
 
 		[MaxLength(500)]
-		public string VideoClipUrl { get; set; }
+		public string? VideoClipUrl { get; set; }
 
 		public double Confidence { get; set; }
 
@@ -39,7 +39,7 @@ namespace Streaming.Domain.Entities
 
 		// Audit fields
 		public DateTime? CreatedAt { get; set; }
-		public string CreatedBy { get; set; }
+		public string? CreatedBy { get; set; }
 
 		// Navigation properties
 		public virtual Camera Camera { get; set; }

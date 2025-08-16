@@ -20,7 +20,6 @@ using System.Threading.Tasks;
 
 namespace Streaming.API.Hubs
 {
-	[Authorize]
 	public class StreamingHub : Hub
 	{
 		private readonly IWebRTCManager _webRTCManager;
@@ -176,7 +175,14 @@ namespace Streaming.API.Hubs
 				_cameraViewers[cameraId].Add(connectionId);
 
 				// Create and return offer
-				var offer = await _webRTCManager.CreateOfferAsync(webRtcConnectionId);
+				var sipsorceryOffer = _webRTCManager.CreateOfferAsync(webRtcConnectionId);
+
+				// Convert SIPSorcery offer to browser-compatible format
+				var browserOffer = new
+				{
+					type = "offer", // Convert enum to string
+					sdp = sipsorceryOffer.sdp
+				};
 
 				// Log stream session
 				var sessionResult = await _mediator.Send(new CreateStreamSessionCommand
@@ -184,7 +190,7 @@ namespace Streaming.API.Hubs
 					CameraId = Guid.Parse(cameraId),
 					ViewerId = userId,
 					ConnectionId = connectionId,
-					SessionDescription = JsonSerializer.Serialize(offer),
+					SessionDescription = JsonSerializer.Serialize(browserOffer),
 					UserAgent = Context.GetHttpContext()?.Request.Headers["User-Agent"].ToString(),
 					IpAddress = Context.GetHttpContext()?.Connection?.RemoteIpAddress?.ToString()
 				});
@@ -197,7 +203,7 @@ namespace Streaming.API.Hubs
 				return new SignalResponse
 				{
 					Success = true,
-					Data = offer
+					Data = browserOffer // Return the browser-compatible offer
 				};
 			}
 			catch (Exception ex)
@@ -211,14 +217,23 @@ namespace Streaming.API.Hubs
 			}
 		}
 
-		public async Task<SignalResponse> SendAnswer(string cameraId, RTCSessionDescriptionInit answer)
+		public async Task<SignalResponse> SendAnswer(string cameraId, AnswerData answerData)
 		{
 			try
 			{
 				var connectionId = Context.ConnectionId;
 				var webRtcConnectionId = $"{cameraId}-{connectionId}";
 
-				var success = await _webRTCManager.SetAnswerAsync(webRtcConnectionId, answer);
+				_logger.LogInformation($"Received answer for camera {cameraId}: type={answerData.Type}, sdp length={answerData.Sdp?.Length}");
+
+				// Convert to SIPSorcery format
+				var sipsorceryAnswer = new RTCSessionDescriptionInit
+				{
+					type = RTCSdpType.answer,
+					sdp = answerData.Sdp
+				};
+
+				var success = _webRTCManager.SetAnswerAsync(webRtcConnectionId, sipsorceryAnswer);
 
 				return new SignalResponse
 				{
@@ -237,14 +252,24 @@ namespace Streaming.API.Hubs
 			}
 		}
 
-		public async Task<SignalResponse> SendIceCandidate(string cameraId, RTCIceCandidateInit candidate)
+		public async Task<SignalResponse> SendIceCandidate(string cameraId, IceCandidateData candidateData)
 		{
 			try
 			{
 				var connectionId = Context.ConnectionId;
 				var webRtcConnectionId = $"{cameraId}-{connectionId}";
 
-				var success = await _webRTCManager.AddIceCandidateAsync(webRtcConnectionId, candidate);
+				_logger.LogInformation($"Received ICE candidate for camera {cameraId}: {candidateData.Candidate}");
+
+				// Convert to SIPSorcery format
+				var sipsorceryCandidate = new RTCIceCandidateInit
+				{
+					candidate = candidateData.Candidate,
+					sdpMid = candidateData.SdpMid,
+					sdpMLineIndex = (ushort)candidateData.SdpMLineIndex
+				};
+
+				var success = _webRTCManager.AddIceCandidateAsync(webRtcConnectionId, sipsorceryCandidate);
 
 				return new SignalResponse
 				{
@@ -254,7 +279,7 @@ namespace Streaming.API.Hubs
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"Error sending ICE candidate for camera {cameraId}");
+				_logger.LogError(ex, $"Error adding ICE candidate for camera {cameraId}");
 				return new SignalResponse
 				{
 					Success = false,
@@ -547,5 +572,18 @@ namespace Streaming.API.Hubs
 		public string UserId { get; set; }
 		public string ConnectionId { get; set; }
 		public DateTime ConnectedAt { get; set; }
+	}
+
+	public class AnswerData
+	{
+		public string Type { get; set; }
+		public string Sdp { get; set; }
+	}
+
+	public class IceCandidateData
+	{
+		public string Candidate { get; set; }
+		public string SdpMid { get; set; }
+		public int? SdpMLineIndex { get; set; }
 	}
 }

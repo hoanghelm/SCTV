@@ -48,16 +48,16 @@ namespace Streaming.Domain.Entities
 		public bool HasMotionDetection { get; set; }
 
 		[MaxLength(1000)]
-		public string ConfigurationJson { get; set; } // Additional camera settings
+		public string? ConfigurationJson { get; set; } // Additional camera settings
 
 		public DateTime? LastPingAt { get; set; }
 		public bool IsOnline { get; set; }
 
 		// Audit fields
 		public DateTime? CreatedAt { get; set; }
-		public string CreatedBy { get; set; }
+		public string? CreatedBy { get; set; }
 		public DateTime? UpdatedAt { get; set; }
-		public string UpdatedBy { get; set; }
+		public string? UpdatedBy { get; set; }
 
 		// Navigation properties
 		public virtual ICollection<StreamSession> StreamSessions { get; set; } = new List<StreamSession>();

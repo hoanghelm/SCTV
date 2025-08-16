@@ -1,8 +1,8 @@
-﻿using Common.ApiResponse;
+﻿using Asp.Versioning;
+using Common.ApiResponse;
 using Common.Constants;
 using Common.ErrorResult;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -21,7 +21,6 @@ namespace Streaming.API.Controllers.v1
 	[ApiVersion("1.0")]
 	[Route("api/v{version:apiVersion}/[controller]")]
 	[ApiController]
-	[Authorize]
 	public class StreamController : ControllerBase
 	{
 		private readonly IMediator _mediator;
@@ -45,7 +44,6 @@ namespace Streaming.API.Controllers.v1
 		/// Register a new camera in the system
 		/// </summary>
 		[HttpPost("camera/register")]
-		[Authorize(Roles = "Admin")]
 		public async Task<IActionResult> RegisterCamera([FromBody] RegisterCameraRequest request)
 		{
 			try
@@ -65,7 +63,6 @@ namespace Streaming.API.Controllers.v1
 		/// Update camera information
 		/// </summary>
 		[HttpPut("camera/{cameraId}")]
-		[Authorize(Roles = "Admin")]
 		public async Task<IActionResult> UpdateCamera(Guid cameraId, [FromBody] UpdateCameraRequest request)
 		{
 			try
@@ -106,7 +103,6 @@ namespace Streaming.API.Controllers.v1
 		/// Get list of active cameras (for AI detection service)
 		/// </summary>
 		[HttpGet("cameras/active")]
-		[AllowAnonymous] // Allow internal services to access
 		public async Task<IActionResult> GetActiveCameras()
 		{
 			try
@@ -147,7 +143,6 @@ namespace Streaming.API.Controllers.v1
 		/// Delete a camera
 		/// </summary>
 		[HttpDelete("camera/{cameraId}")]
-		[Authorize(Roles = "Admin")]
 		public async Task<IActionResult> DeleteCamera(Guid cameraId)
 		{
 			try
@@ -199,7 +194,7 @@ namespace Streaming.API.Controllers.v1
 
 				var connectionId = $"{cameraId}-{userId}-{Guid.NewGuid()}";
 				await _webRTCManager.CreateConnectionAsync(connectionId, camera.StreamUrl);
-				var offer = await _webRTCManager.CreateOfferAsync(connectionId);
+				var offer = _webRTCManager.CreateOfferAsync(connectionId);
 
 				return ApiResult.Succeeded(new
 				{
@@ -222,7 +217,7 @@ namespace Streaming.API.Controllers.v1
 		{
 			try
 			{
-				var success = await _webRTCManager.SetAnswerAsync(request.ConnectionId, request.Answer);
+				var success = _webRTCManager.SetAnswerAsync(request.ConnectionId, request.Answer);
 
 				if (success)
 				{
@@ -255,7 +250,7 @@ namespace Streaming.API.Controllers.v1
 		{
 			try
 			{
-				var success = await _webRTCManager.AddIceCandidateAsync(request.ConnectionId, request.Candidate);
+				var success = _webRTCManager.AddIceCandidateAsync(request.ConnectionId, request.Candidate);
 				return success ? ApiResult.Succeeded() : ApiResult.Failed(HttpCode.BadRequest, "Failed to add ICE candidate");
 			}
 			catch (Exception ex)
@@ -326,7 +321,6 @@ namespace Streaming.API.Controllers.v1
 		/// Get stream statistics
 		/// </summary>
 		[HttpGet("statistics")]
-		[Authorize(Roles = "Admin")]
 		public async Task<IActionResult> GetStatistics([FromQuery] GetStreamStatisticsRequest request)
 		{
 			try
@@ -345,7 +339,6 @@ namespace Streaming.API.Controllers.v1
 		/// Test camera connection
 		/// </summary>
 		[HttpPost("camera/test")]
-		[Authorize(Roles = "Admin")]
 		public async Task<IActionResult> TestCameraConnection([FromBody] TestCameraConnectionRequest request)
 		{
 			try
@@ -364,17 +357,15 @@ namespace Streaming.API.Controllers.v1
 		/// Create test stream for development/testing
 		/// </summary>
 		[HttpPost("test/create-stream")]
-		[Authorize(Roles = "Admin")]
 		public async Task<IActionResult> CreateTestStream([FromBody] CreateTestStreamRequest request)
 		{
 			try
 			{
-				// Create a test camera
 				var testCamera = new RegisterCameraRequest
 				{
 					Name = request.Name ?? "Test Camera",
 					Location = "Test Location",
-					StreamUrl = "test://pattern", // Special URL for test pattern
+					StreamUrl = "test://pattern",
 					Resolution = "1280x720",
 					FrameRate = 30,
 					TestMode = true,
@@ -392,7 +383,6 @@ namespace Streaming.API.Controllers.v1
 		}
 	}
 
-	// Request/Response DTOs (Keep existing ones)
 	public class SetAnswerRequest
 	{
 		public string ConnectionId { get; set; }

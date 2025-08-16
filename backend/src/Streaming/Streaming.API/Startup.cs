@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
@@ -10,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using SCTV.AppHost.Extensions;
+using Streaming.API.Hubs;
 using Streaming.Infrastructure.Configures;
 using Streaming.Infrastructure.Mapper;
 using Streaming.Infrastructure.Mediators;
@@ -31,7 +34,7 @@ namespace Streaming.API
 		// This method gets called by the runtime. Use this method to add services to the container.
 		public void ConfigureServices(IServiceCollection services)
 		{
-
+			services.AddServiceDefaults(Configuration);
 			services.AddControllers();
 			services.AddSwaggerGen(c =>
 			{
@@ -87,7 +90,11 @@ namespace Streaming.API
 				}
 			});
 
-			app.UseEndpoints(endpoints => endpoints.MapControllers());
+			app.UseEndpoints(endpoints => 
+			{
+				endpoints.MapControllers();
+				endpoints.MapHub<StreamingHub>("streamingHub");
+			});
 		}
 	}
 }

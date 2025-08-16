@@ -11,7 +11,6 @@ using Streaming.Domain.Contracts;
 using Streaming.Infrastructure.Mediators;
 using Streaming.Service.Commands;
 using Streaming.Service.Handlers;
-using Streaming.Service.Mappings;
 using Streaming.Service.Queries;
 using Streaming.Service.WebRTC;
 using System.Reflection;
@@ -22,12 +21,6 @@ namespace Streaming.Infrastructure.Configures
 	{
 		public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
 		{
-
-			services.AddStackExchangeRedisCache(options =>
-			{
-				options.Configuration = Environment.GetEnvironmentVariable("REDIS_HOST");
-			});
-
 			// Add WebRTC Configuration
 			services.AddSingleton<WebRTCConfiguration>(provider =>
 			{
@@ -109,9 +102,6 @@ namespace Streaming.Infrastructure.Configures
 			services.AddService<GetDetectionEventsRequest, GetDetectionEventsHandler>();
 			services.AddService<GetStreamSessionsRequest, GetStreamSessionsHandler>();
 			services.AddService<GetStreamStatisticsRequest, GetStreamStatisticsHandler>();
-
-			// Add AutoMapper
-			services.AddAutoMapper(typeof(StreamingProfile));
 
 			// Add SignalR
 			services.AddSignalR(options =>

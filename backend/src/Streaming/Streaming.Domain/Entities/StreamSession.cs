@@ -15,9 +15,8 @@ namespace Streaming.Domain.Entities
 		[Required]
 		public Guid CameraId { get; set; }
 
-		[Required]
 		[MaxLength(450)]
-		public string ViewerId { get; set; } // User ID
+		public string? ViewerId { get; set; } // User ID
 
 		[MaxLength(50)]
 		public string ConnectionId { get; set; } // SignalR connection ID
@@ -47,9 +46,9 @@ namespace Streaming.Domain.Entities
 
 		// Audit fields
 		public DateTime? CreatedAt { get; set; }
-		public string CreatedBy { get; set; }
+		public string? CreatedBy { get; set; }
 		public DateTime? UpdatedAt { get; set; }
-		public string UpdatedBy { get; set; }
+		public string? UpdatedBy { get; set; }
 
 		// Navigation properties
 		public virtual Camera Camera { get; set; }
