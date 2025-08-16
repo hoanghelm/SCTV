@@ -14,6 +14,7 @@ namespace Streaming.Service.Models
 		public int Height { get; set; }
 		public VideoPixelFormatsEnum Format { get; set; }
 		public int Duration { get; set; }
+		public bool IsPreEncoded { get; set; } // Flag to indicate if data is already H.264 encoded
 	}
 	public interface IVideoSource : IDisposable
 	{

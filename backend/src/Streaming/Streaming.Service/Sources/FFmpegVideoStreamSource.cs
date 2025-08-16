@@ -13,42 +13,71 @@ namespace Streaming.Service.Sources
 	{
 		private readonly string _streamUrl;
 		private readonly int _frameRate;
-		private FFmpegVideoEndPoint _ffmpegEndpoint;
+		private readonly int _targetWidth;
+		private readonly int _targetHeight;
+		
+		private Process _ffmpegProcess;
+		private Stream _ffmpegOutput;
 		private bool _isRunning;
 		private bool _isDisposed;
+		private byte[] _frameBuffer;
+		private int _frameSize;
 
-		public FFmpegVideoStreamSource(string streamUrl, int frameRate)
+		public FFmpegVideoStreamSource(string streamUrl, int frameRate, int width = 1280, int height = 720)
 		{
 			_streamUrl = streamUrl;
 			_frameRate = frameRate;
+			_targetWidth = width;
+			_targetHeight = height;
+			_frameSize = width * height * 3; // BGR24 = 3 bytes per pixel
+			_frameBuffer = new byte[_frameSize];
 		}
 
 		public async Task<VideoFrame> GetNextFrameAsync()
 		{
-			if (!_isRunning || _ffmpegEndpoint == null || _isDisposed)
+			if (!_isRunning || _ffmpegOutput == null || _isDisposed)
 				return null;
 
 			try
 			{
-				// Wait for frame interval
-				await Task.Delay(1000 / _frameRate);
+				// Read a complete frame from FFmpeg (fixed size for raw BGR24)
+				var totalBytesRead = 0;
+				var readBuffer = new byte[_frameSize];
+				
+				while (totalBytesRead < _frameSize)
+				{
+					var bytesRead = await _ffmpegOutput.ReadAsync(
+						readBuffer,
+						totalBytesRead,
+						_frameSize - totalBytesRead);
 
-				// For RTSP streams, you'd integrate with FFmpeg here
-				// This is a placeholder for now
-				var frameSize = 1280 * 720 * 3; // Assuming RGB24 format
-				var frameData = new byte[frameSize];
+					if (bytesRead == 0)
+					{
+						// Connection lost or stream ended
+						Console.WriteLine($"RTSP stream ended or connection lost: {_streamUrl}");
+						return null;
+					}
+
+					totalBytesRead += bytesRead;
+				}
+
+				// Create a copy of the frame data
+				var frameData = new byte[_frameSize];
+				Array.Copy(readBuffer, frameData, _frameSize);
 
 				return new VideoFrame
 				{
 					Data = frameData,
-					Width = 1280,
-					Height = 720,
-					Format = VideoPixelFormatsEnum.Rgb,
-					Duration = 1000 / _frameRate
+					Width = _targetWidth,
+					Height = _targetHeight,
+					Format = VideoPixelFormatsEnum.Bgr, // FFmpeg outputs BGR24
+					Duration = 1000 / _frameRate,
+					IsPreEncoded = false // Raw frame data for SIPSorcery to encode
 				};
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
+				Console.WriteLine($"Error reading RTSP frame from {_streamUrl}: {ex.Message}");
 				return null;
 			}
 		}
@@ -59,23 +88,86 @@ namespace Streaming.Service.Sources
 
 			try
 			{
-				_ffmpegEndpoint = new FFmpegVideoEndPoint();
-				_ffmpegEndpoint.RestrictFormats(format =>
-					format.Codec == VideoCodecsEnum.VP8 ||
-					format.Codec == VideoCodecsEnum.H264);
-
+				StartFFmpegProcess();
 				_isRunning = true;
+
+				Console.WriteLine($"Started RTSP stream: {_streamUrl}");
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
+				Console.WriteLine($"Failed to start RTSP stream {_streamUrl}: {ex.Message}");
 				_isRunning = false;
 				throw;
 			}
 		}
 
+		private void StartFFmpegProcess()
+		{
+			// FFmpeg command to read RTSP stream and output raw BGR24 frames for SIPSorcery
+			// We go back to raw frames since SIPSorcery needs to handle the encoding pipeline
+			var ffmpegArgs = $"-i \"{_streamUrl}\" " +
+						   $"-f rawvideo -pix_fmt bgr24 " +
+						   $"-s {_targetWidth}x{_targetHeight} " +
+						   $"-r {_frameRate} " +
+						   $"-an -"; // -an = no audio, - = output to stdout
+
+			_ffmpegProcess = new Process
+			{
+				StartInfo = new ProcessStartInfo
+				{
+					FileName = "ffmpeg",
+					Arguments = ffmpegArgs,
+					UseShellExecute = false,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true,
+					CreateNoWindow = true,
+					StandardOutputEncoding = null // Important for binary data
+				}
+			};
+
+			// Log FFmpeg errors for debugging
+			_ffmpegProcess.ErrorDataReceived += (sender, e) =>
+			{
+				if (!string.IsNullOrEmpty(e.Data))
+				{
+					Console.WriteLine($"FFmpeg RTSP: {e.Data}");
+				}
+			};
+
+			_ffmpegProcess.Start();
+			_ffmpegProcess.BeginErrorReadLine();
+
+			_ffmpegOutput = _ffmpegProcess.StandardOutput.BaseStream;
+
+			Console.WriteLine($"FFmpeg RTSP process started with PID: {_ffmpegProcess.Id}");
+		}
+
 		public void Stop()
 		{
 			_isRunning = false;
+			StopFFmpegProcess();
+		}
+
+		private void StopFFmpegProcess()
+		{
+			try
+			{
+				_ffmpegOutput?.Close();
+				_ffmpegOutput = null;
+
+				if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
+				{
+					_ffmpegProcess.Kill();
+					_ffmpegProcess.WaitForExit(1000);
+				}
+
+				_ffmpegProcess?.Dispose();
+				_ffmpegProcess = null;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error stopping FFmpeg RTSP process: {ex.Message}");
+			}
 		}
 
 		public void Dispose()
@@ -84,7 +176,8 @@ namespace Streaming.Service.Sources
 
 			_isDisposed = true;
 			Stop();
-			_ffmpegEndpoint?.Dispose();
+
+			Console.WriteLine($"Disposed FFmpeg RTSP source for: {_streamUrl}");
 		}
 	}
 
@@ -123,43 +216,72 @@ namespace Streaming.Service.Sources
 
 			try
 			{
-				// Read a complete frame from FFmpeg
-				var totalBytesRead = 0;
-				while (totalBytesRead < _frameSize)
-				{
-					var bytesRead = await _ffmpegOutput.ReadAsync(
-						_frameBuffer,
-						totalBytesRead,
-						_frameSize - totalBytesRead);
+				// Read H.264 NAL units and look for complete frames
+				var frameBuffer = new List<byte>();
+				var readBuffer = new byte[8192];
+				var nalStartPattern = new byte[] { 0x00, 0x00, 0x00, 0x01 };
+				var frameComplete = false;
+				var nalCount = 0;
 
+				while (!frameComplete)
+				{
+					var bytesRead = await _ffmpegOutput.ReadAsync(readBuffer, 0, readBuffer.Length);
 					if (bytesRead == 0)
 					{
-						// End of file reached, restart the video (loop)
+						// End of file, restart
 						await RestartVideo();
+						if (frameBuffer.Count > 0)
+							break;
 						continue;
 					}
 
-					totalBytesRead += bytesRead;
+					frameBuffer.AddRange(readBuffer.Take(bytesRead));
+
+					// Look for NAL unit start codes to identify frame boundaries
+					var bufferArray = frameBuffer.ToArray();
+					for (int i = 0; i <= bufferArray.Length - 4; i++)
+					{
+						if (bufferArray[i] == 0x00 && bufferArray[i + 1] == 0x00 && 
+							bufferArray[i + 2] == 0x00 && bufferArray[i + 3] == 0x01)
+						{
+							nalCount++;
+							// Complete frame when we have multiple NALs and find the next frame's SPS/PPS/IDR
+							if (nalCount > 2 && i > 100) // Simple heuristic
+							{
+								frameComplete = true;
+								frameBuffer = frameBuffer.Take(i).ToList(); // Keep only this frame
+								break;
+							}
+						}
+					}
+
+					// Safety limit to prevent infinite buffering
+					if (frameBuffer.Count > 100000)
+					{
+						frameComplete = true;
+					}
 				}
 
 				_frameCount++;
 
-				// Create a copy of the frame data
-				var frameData = new byte[_frameSize];
-				Array.Copy(_frameBuffer, frameData, _frameSize);
-
-				return new VideoFrame
+				if (frameBuffer.Count > 0)
 				{
-					Data = frameData,
-					Width = _targetWidth,
-					Height = _targetHeight,
-					Format = VideoPixelFormatsEnum.Bgr, // FFmpeg outputs BGR24
-					Duration = 1000 / _frameRate
-				};
+					return new VideoFrame
+					{
+						Data = frameBuffer.ToArray(),
+						Width = _targetWidth,
+						Height = _targetHeight,
+						Format = VideoPixelFormatsEnum.Bgr, // Not used for H.264
+						Duration = 1000 / _frameRate,
+						IsPreEncoded = true
+					};
+				}
+
+				return null;
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error reading video frame: {ex.Message}");
+				Console.WriteLine($"Error reading H.264 frame: {ex.Message}");
 				return null;
 			}
 		}
@@ -188,11 +310,15 @@ namespace Streaming.Service.Sources
 
 		private void StartFFmpegProcess()
 		{
-			// FFmpeg command to read video file and output raw BGR24 frames
+			// FFmpeg command to read video file and output WebRTC-compatible H.264
 			var ffmpegArgs = $"-re -stream_loop -1 -i \"{_filePath}\" " +
-						   $"-f rawvideo -pix_fmt bgr24 " +
+						   $"-c:v libx264 -preset ultrafast -tune zerolatency " +
+						   $"-profile:v baseline -level 3.1 " +
+						   $"-pix_fmt yuv420p " +
 						   $"-s {_targetWidth}x{_targetHeight} " +
 						   $"-r {_frameRate} " +
+						   $"-g {_frameRate} " + // GOP size = frame rate for frequent keyframes
+						   $"-f h264 " +
 						   $"-an -"; // -an = no audio, - = output to stdout
 
 			_ffmpegProcess = new Process
