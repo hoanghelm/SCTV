@@ -216,72 +216,35 @@ namespace Streaming.Service.Sources
 
 			try
 			{
-				// Read H.264 NAL units and look for complete frames
-				var frameBuffer = new List<byte>();
-				var readBuffer = new byte[8192];
-				var nalStartPattern = new byte[] { 0x00, 0x00, 0x00, 0x01 };
-				var frameComplete = false;
-				var nalCount = 0;
-
-				while (!frameComplete)
+				var readBuffer = new byte[8192]; // 8KB chunks
+				var bytesRead = await _ffmpegOutput.ReadAsync(readBuffer, 0, readBuffer.Length);
+				
+				if (bytesRead == 0)
 				{
-					var bytesRead = await _ffmpegOutput.ReadAsync(readBuffer, 0, readBuffer.Length);
-					if (bytesRead == 0)
-					{
-						// End of file, restart
-						await RestartVideo();
-						if (frameBuffer.Count > 0)
-							break;
-						continue;
-					}
-
-					frameBuffer.AddRange(readBuffer.Take(bytesRead));
-
-					// Look for NAL unit start codes to identify frame boundaries
-					var bufferArray = frameBuffer.ToArray();
-					for (int i = 0; i <= bufferArray.Length - 4; i++)
-					{
-						if (bufferArray[i] == 0x00 && bufferArray[i + 1] == 0x00 && 
-							bufferArray[i + 2] == 0x00 && bufferArray[i + 3] == 0x01)
-						{
-							nalCount++;
-							// Complete frame when we have multiple NALs and find the next frame's SPS/PPS/IDR
-							if (nalCount > 2 && i > 100) // Simple heuristic
-							{
-								frameComplete = true;
-								frameBuffer = frameBuffer.Take(i).ToList(); // Keep only this frame
-								break;
-							}
-						}
-					}
-
-					// Safety limit to prevent infinite buffering
-					if (frameBuffer.Count > 100000)
-					{
-						frameComplete = true;
-					}
+					// End of file, restart
+					await RestartVideo();
+					return null;
 				}
 
 				_frameCount++;
 
-				if (frameBuffer.Count > 0)
+				// Trim the buffer to actual bytes read
+				var frameData = new byte[bytesRead];
+				Array.Copy(readBuffer, frameData, bytesRead);
+				
+				return new VideoFrame
 				{
-					return new VideoFrame
-					{
-						Data = frameBuffer.ToArray(),
-						Width = _targetWidth,
-						Height = _targetHeight,
-						Format = VideoPixelFormatsEnum.Bgr, // Not used for H.264
-						Duration = 1000 / _frameRate,
-						IsPreEncoded = true
-					};
-				}
-
-				return null;
+					Data = frameData,
+					Width = _targetWidth,
+					Height = _targetHeight,
+					Format = VideoPixelFormatsEnum.Bgr, // Not used for H.264
+					Duration = 1000 / _frameRate,
+					IsPreEncoded = true
+				};
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error reading H.264 frame: {ex.Message}");
+				Console.WriteLine($"Error reading H.264 data: {ex.Message}");
 				return null;
 			}
 		}
@@ -318,6 +281,9 @@ namespace Streaming.Service.Sources
 						   $"-s {_targetWidth}x{_targetHeight} " +
 						   $"-r {_frameRate} " +
 						   $"-g {_frameRate} " + // GOP size = frame rate for frequent keyframes
+						   $"-keyint_min {_frameRate} " + // Force keyframes regularly
+						   $"-force_key_frames expr:gte(t,n_forced*1) " + // Force keyframes every second
+						   $"-bsf:v h264_mp4toannexb " + // Convert to Annex B format for WebRTC
 						   $"-f h264 " +
 						   $"-an -"; // -an = no audio, - = output to stdout
 

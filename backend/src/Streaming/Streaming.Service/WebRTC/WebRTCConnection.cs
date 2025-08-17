@@ -79,7 +79,6 @@ namespace Streaming.Service.WebRTC
 				_logger.LogInformation($"ICE gathering state for {_connectionId}: {state}");
 			};
 
-			// Keep it simple - use the original working approach but just send test pattern
 			_logger.LogInformation($"Creating basic video track for {_connectionId}");
 			
 			var videoFormats = new List<VideoFormat>
@@ -134,23 +133,22 @@ namespace Streaming.Service.WebRTC
 		{
 			try
 			{
-				// Start the working test pattern transmission
-				_logger.LogInformation($"Starting test pattern video transmission for {_connectionId}");
-				StartBasicVideoTransmission();
+				var sourceType = GetSourceType();
+				_logger.LogInformation($"Starting video source for {_connectionId} - Type: {sourceType}, StreamSource: {_streamSource}");
 
-				// Also start our custom source to read real video frames (for monitoring)
 				if (_customVideoSource != null)
 				{
-					var sourceType = GetSourceType();
-					_logger.LogInformation($"Also starting custom video source for {_connectionId} - Type: {sourceType}");
+					_logger.LogInformation($"Starting real video streaming from {sourceType}");
 					_customVideoSource.Start();
-
-					// Monitor the real video frames
-					if (sourceType == "VideoFile" || sourceType == "RtspStream")
-					{
-						var frameInterval = 1000 / _config.VideoFrameRate;
-						_frameTimer = new Timer(MonitorCustomFrames, null, 0, frameInterval);
-					}
+					
+					var frameInterval = 1000 / _config.VideoFrameRate;
+					_frameTimer = new Timer(SendRealVideoFrame, null, 0, frameInterval);
+					_logger.LogInformation($"Frame timer started for {_connectionId}, interval: {frameInterval}ms");
+				}
+				else
+				{
+					_logger.LogError($"No video source available for {_connectionId} - Stream source: {_streamSource}");
+					_logger.LogError($"Source type detected as: {sourceType}");
 				}
 			}
 			catch (Exception ex)
@@ -159,70 +157,6 @@ namespace Streaming.Service.WebRTC
 			}
 		}
 
-		private void StartBasicVideoTransmission()
-		{
-			// Create a timer to send simple test frames
-			var frameInterval = 1000 / _config.VideoFrameRate; // ms between frames
-			_frameTimer = new Timer(SendTestFrame, null, 0, frameInterval);
-			_logger.LogInformation($"Started basic video transmission for {_connectionId} at {_config.VideoFrameRate} FPS");
-		}
-
-		private void SendTestFrame(object state)
-		{
-			try
-			{
-				var timestamp = (uint)(DateTime.UtcNow.Subtract(DateTime.UnixEpoch).TotalMilliseconds * 90);
-				
-				// Create a proper H.264 frame with correct SPS/PPS/IDR structure
-				// This creates a simple 16x16 black frame that browsers can decode
-				
-				// SPS (Sequence Parameter Set) - defines video properties
-				var sps = new byte[]
-				{
-					0x00, 0x00, 0x00, 0x01, // NAL start code
-					0x67, 0x42, 0xE0, 0x1E, // SPS NAL header + profile
-					0xDA, 0x05, 0x82, 0x59, // SPS data for 16x16 resolution
-					0x25, 0xB8, 0x0C, 0x04,
-					0x04, 0x06, 0x9F, 0x18,
-					0x32, 0xA0
-				};
-
-				// PPS (Picture Parameter Set) - defines picture properties  
-				var pps = new byte[]
-				{
-					0x00, 0x00, 0x00, 0x01, // NAL start code
-					0x68, 0xCE, 0x31, 0x12, 0x11 // PPS NAL header + data
-				};
-
-				// IDR (Instantaneous Decoder Refresh) - actual frame data
-				var idr = new byte[]
-				{
-					0x00, 0x00, 0x00, 0x01, // NAL start code
-					0x65, 0x88, 0x84, 0x00, // IDR slice header
-					0x20, 0x00, 0x00, 0x03, // Slice data (black 16x16 macroblock)
-					0x00, 0x00, 0x32, 0x08
-				};
-
-				// Combine all NAL units
-				var frameData = new byte[sps.Length + pps.Length + idr.Length];
-				Array.Copy(sps, 0, frameData, 0, sps.Length);
-				Array.Copy(pps, 0, frameData, sps.Length, pps.Length);
-				Array.Copy(idr, 0, frameData, sps.Length + pps.Length, idr.Length);
-
-				// Send via WebRTC
-				_peerConnection.SendVideo(timestamp, frameData);
-				_framesSent++;
-				
-				if (_framesSent % 30 == 0)
-				{
-					_logger.LogInformation($"Sent {_framesSent} H.264 frames (SPS+PPS+IDR) for {_connectionId}");
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, $"Error sending test frame for {_connectionId}");
-			}
-		}
 
 		private void StopVideoSource()
 		{
@@ -235,26 +169,33 @@ namespace Streaming.Service.WebRTC
 			_logger.LogInformation($"Stopped video sources for {_connectionId}");
 		}
 
-		private async void MonitorCustomFrames(object state)
+		private async void SendRealVideoFrame(object state)
 		{
-			if (_customVideoSource == null) return;
+			if (_customVideoSource == null)
+			{
+				_logger.LogWarning($"Custom video source is null for {_connectionId}");
+				return;
+			}
 
 			try
 			{
 				var frame = await _customVideoSource.GetNextFrameAsync();
 				if (frame != null && frame.Data != null && frame.Data.Length > 0)
 				{
+					await SendVideoFrame(frame);
 					_framesSent++;
-					if (_framesSent % 60 == 0)
+				}
+				else
+				{
+					if (_framesSent % 60 == 0) // Log when no frames are available
 					{
-						_logger.LogInformation($"Monitoring real video: received frame {frame.Width}x{frame.Height} ({frame.Data.Length} bytes) - frame #{_framesSent}");
-						_logger.LogInformation($"SIPSorcery test pattern is being displayed to browser while we monitor real video");
+						_logger.LogWarning($"No frame data available from video source for {_connectionId}");
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"Error monitoring custom frame for {_connectionId}");
+				_logger.LogError(ex, $"Error sending real video frame for {_connectionId}: {ex.Message}");
 			}
 		}
 
@@ -264,55 +205,22 @@ namespace Streaming.Service.WebRTC
 			{
 				var timestamp = (uint)(DateTime.UtcNow.Subtract(DateTime.UnixEpoch).TotalMilliseconds * 90);
 
-				// For now, send the working test pattern format but log that we're getting real frames
-				// This maintains video flow while we debug the H.264 compatibility
-				var testFrameData = CreateWebRTCCompatibleFrame();
-				_peerConnection.SendVideo(timestamp, testFrameData);
-				
-				if (_framesSent % 60 == 0)
+				if (frame.IsPreEncoded)
 				{
-					_logger.LogInformation($"Received real frame {frame.Width}x{frame.Height} ({frame.Data.Length} bytes) but sending test pattern for WebRTC compatibility");
+					// Frame is already H.264 encoded (from video file)
+					_peerConnection.SendVideo(timestamp, frame.Data);
+				}
+				else
+				{
+					// Raw frame from RTSP - need proper encoding
+					// For now, skip raw frames until we implement proper encoding
+					_logger.LogWarning($"Skipping raw frame - need to implement proper H.264 encoding for RTSP");
 				}
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, $"Error sending video frame for {_connectionId}: {ex.Message}");
 			}
-		}
-
-		private byte[] CreateWebRTCCompatibleFrame()
-		{
-			// Use the working test pattern structure that browsers can decode
-			var sps = new byte[]
-			{
-				0x00, 0x00, 0x00, 0x01, // NAL start code
-				0x67, 0x42, 0xE0, 0x1E, // SPS NAL header + profile
-				0xDA, 0x05, 0x82, 0x59, // SPS data for 16x16 resolution
-				0x25, 0xB8, 0x0C, 0x04,
-				0x04, 0x06, 0x9F, 0x18,
-				0x32, 0xA0
-			};
-
-			var pps = new byte[]
-			{
-				0x00, 0x00, 0x00, 0x01, // NAL start code
-				0x68, 0xCE, 0x31, 0x12, 0x11 // PPS NAL header + data
-			};
-
-			var idr = new byte[]
-			{
-				0x00, 0x00, 0x00, 0x01, // NAL start code
-				0x65, 0x88, 0x84, 0x00, // IDR slice header
-				0x20, 0x00, 0x00, 0x03, // Slice data (black 16x16 macroblock)
-				0x00, 0x00, 0x32, 0x08
-			};
-
-			var frameData = new byte[sps.Length + pps.Length + idr.Length];
-			Array.Copy(sps, 0, frameData, 0, sps.Length);
-			Array.Copy(pps, 0, frameData, sps.Length, pps.Length);
-			Array.Copy(idr, 0, frameData, sps.Length + pps.Length, idr.Length);
-			
-			return frameData;
 		}
 
 		private VideoPixelFormatsEnum ConvertToSIPSorceryFormat(VideoPixelFormatsEnum format)

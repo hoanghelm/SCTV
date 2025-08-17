@@ -14,6 +14,8 @@ using Streaming.Service.ViewModels;
 using Streaming.Service.WebRTC;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Streaming.API.Controllers.v1
@@ -361,11 +363,48 @@ namespace Streaming.API.Controllers.v1
 		{
 			try
 			{
+				string streamUrl;
+				
+				// Determine stream URL based on request type and file path
+				if (!string.IsNullOrEmpty(request.VideoFilePath))
+				{
+					// Use video file - check for common video file paths
+					var videoFilePaths = new[]
+					{
+						request.VideoFilePath,
+						Path.Combine(Directory.GetCurrentDirectory(), "videos", request.VideoFilePath),
+						Path.Combine(Directory.GetCurrentDirectory(), request.VideoFilePath),
+						Path.Combine("C:\\Videos", request.VideoFilePath),
+						Path.Combine("D:\\Videos", request.VideoFilePath)
+					};
+
+					var validPath = videoFilePaths.FirstOrDefault(path => System.IO.File.Exists(path));
+					
+					if (!string.IsNullOrEmpty(validPath))
+					{
+						streamUrl = validPath;
+						_logger.LogInformation($"Creating video file stream from: {validPath}");
+					}
+					else
+					{
+						_logger.LogWarning($"Video file not found: {request.VideoFilePath}, falling back to test pattern");
+						streamUrl = "test://pattern";
+					}
+				}
+				else if (request.Type == "pattern")
+				{
+					streamUrl = "test://pattern";
+				}
+				else
+				{
+					streamUrl = "test://pattern";
+				}
+
 				var testCamera = new RegisterCameraRequest
 				{
 					Name = request.Name ?? "Test Camera",
 					Location = "Test Location",
-					StreamUrl = "test://pattern",
+					StreamUrl = streamUrl,
 					Resolution = "1280x720",
 					FrameRate = 30,
 					TestMode = true,
