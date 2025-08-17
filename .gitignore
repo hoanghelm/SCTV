@@ -129,3 +129,47 @@ publish/
 
 # Ignore config transforms
 *.config.*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.env
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.tox/
+.nox/
+htmlcov/
+coverage.xml
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE / Editor
+.vscode/
+.idea/
+*.iml
+
+# Logs / temp files
+*.log
+*.pot
+*.tmp
+*.bak
+*.swp
+*.swo

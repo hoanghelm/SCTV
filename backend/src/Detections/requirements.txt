@@ -1,0 +1,8 @@
+opencv-python
+ultralytics
+numpy
+aiohttp
+python-dotenv
+requests
+asyncio
+pillow

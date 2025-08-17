@@ -169,8 +169,17 @@
         }
 
         .detection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .video-container {
             position: relative;
-            margin-top: -5px;
         }
 
         .detection-box {
@@ -178,6 +187,12 @@
             border: 2px solid #00ff00;
             background-color: rgba(0, 255, 0, 0.1);
             pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            opacity: 1;
+        }
+
+        .detection-box.fading {
+            opacity: 0;
         }
 
         .detection-label {
@@ -303,6 +318,10 @@
                 <button id="loadVideoFile">Load Video File</button>
                 <input type="file" id="videoFileInput" accept="video/*" style="display: none;">
             </div>
+            <div class="control-group">
+                <label>AI Detection:</label>
+                <span id="detectionStatus" style="margin-left: 10px; color: #00ba7c;">Auto-enabled</span>
+            </div>
         </div>
 
         <div class="status disconnected" id="connectionStatus">
@@ -338,6 +357,10 @@
 
     <!-- Include SignalR -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+
+    <!-- Include TensorFlow.js for real-time person detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 
     <script>
 
@@ -376,6 +399,17 @@
         let cameras = [];
         let currentCameraId = null;
 
+        let detectionModel = null;
+        let detectionEnabled = false;
+        let detectionIntervals = {};
+        let lastDetectionTime = {};
+        let detectionDisplayTimeouts = {};
+        let detectionStats = {
+            totalDetections: 0,
+            fps: 0,
+            avgConfidence: 0
+        };
+
         const apiUrlInput = document.getElementById('apiUrl');
         const authTokenInput = document.getElementById('authToken');
         const cameraSelect = document.getElementById('cameraSelect');
@@ -389,6 +423,8 @@
         const videoFileInput = document.getElementById('videoFileInput');
         const refreshCamerasBtn = document.getElementById('refreshCameras');
 
+        const detectionStatusSpan = document.getElementById('detectionStatus');
+
         async function initialize() {
             debugLog('Initializing application');
             apiUrlInput.value = config.apiUrl;
@@ -400,6 +436,8 @@
             loadVideoFileBtn.addEventListener('click', () => videoFileInput.click());
             videoFileInput.addEventListener('change', handleVideoFileSelect);
             refreshCamerasBtn.addEventListener('click', loadCameras);
+
+            await initializeDetectionModel();
 
             document.getElementById('clearDebug').addEventListener('click', () => {
                 debugMessages = [];
@@ -568,6 +606,18 @@
                         if (playPromise !== undefined) {
                             playPromise.then(() => {
                                 debugLog('Video started playing successfully');
+
+                                if (detectionEnabled && detectionModel) {
+                                    setTimeout(() => {
+                                        if (video.videoWidth > 0 && video.videoHeight > 0) {
+                                            startDetectionForVideo(video);
+                                            debugLog('Started detection for video', { 
+                                                width: video.videoWidth, 
+                                                height: video.videoHeight 
+                                            });
+                                        }
+                                    }, 2000);
+                                }
                             }).catch(err => {
                                 debugLog('Failed to play video', err);
 
@@ -982,6 +1032,223 @@
             const modalImg = document.getElementById('modalImage');
             modal.style.display = 'block';
             modalImg.src = src;
+        }
+
+        async function initializeDetectionModel() {
+            try {
+                detectionStatusSpan.textContent = 'Loading model...';
+                debugLog('Loading COCO-SSD detection model...');
+
+                detectionModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+
+                detectionEnabled = true;
+
+                debugLog('COCO-SSD model loaded successfully');
+                detectionStatusSpan.textContent = 'Active';
+                detectionStatusSpan.style.color = '#00ba7c';
+                return true;
+            } catch (error) {
+                debugLog('Error loading detection model', error);
+                detectionStatusSpan.textContent = 'Failed';
+                detectionStatusSpan.style.color = '#f91880';
+                addNotification('Failed to load AI detection model: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        function startDetectionForAllVideos() {
+            document.querySelectorAll('.video-container video').forEach(video => {
+                if (video.srcObject && video.videoWidth > 0) {
+                    startDetectionForVideo(video);
+                }
+            });
+        }
+
+        function stopDetectionForAllVideos() {
+            Object.values(detectionIntervals).forEach(interval => clearInterval(interval));
+            detectionIntervals = {};
+
+            document.querySelectorAll('.detection-overlay').forEach(overlay => {
+                overlay.innerHTML = '';
+            });
+        }
+
+        function startDetectionForVideo(video) {
+            const container = video.closest('.video-container');
+            const cameraId = container.id.replace('video-', '');
+
+            if (detectionIntervals[cameraId]) {
+                clearInterval(detectionIntervals[cameraId]);
+            }
+
+            detectionIntervals[cameraId] = setInterval(async () => {
+                await detectPersonsInVideo(video, cameraId);
+            }, 1000); 
+        }
+
+        async function detectPersonsInVideo(video, cameraId) {
+            if (!detectionModel || !detectionEnabled || video.videoWidth === 0) return;
+
+            try {
+                const startTime = performance.now();
+
+                const predictions = await detectionModel.detect(video);
+
+                const personDetections = predictions.filter(prediction => 
+                    prediction.class === 'person' && prediction.score > 0.4
+                );
+
+                const endTime = performance.now();
+                const detectionTime = endTime - startTime;
+
+                detectionStats.fps = Math.round(1000 / detectionTime);
+                if (personDetections.length > 0) {
+                    detectionStats.totalDetections += personDetections.length;
+                    detectionStats.avgConfidence = personDetections.reduce((sum, det) => sum + det.score, 0) / personDetections.length;
+                }
+
+                displayDetections(cameraId, personDetections);
+
+                if (shouldSendDetectionEvent(cameraId, personDetections)) {
+                    sendRealtimeDetectionEvent(cameraId, personDetections);
+                }
+
+            } catch (error) {
+                debugLog('Detection error for camera ' + cameraId, error);
+            }
+        }
+
+        function displayDetections(cameraId, detections) {
+            const overlay = document.getElementById(`detections-${cameraId}`);
+            const video = document.querySelector(`#video-${cameraId} video`);
+            if (!overlay || !video || video.videoWidth === 0) return;
+
+            if (detectionDisplayTimeouts[cameraId]) {
+                clearTimeout(detectionDisplayTimeouts[cameraId]);
+            }
+
+            const existingBoxes = overlay.querySelectorAll('.detection-box');
+            existingBoxes.forEach(box => box.classList.add('fading'));
+
+            setTimeout(() => {
+                overlay.innerHTML = '';
+
+                if (detections.length === 0) return;
+
+                const videoDisplayWidth = video.offsetWidth;
+                const videoDisplayHeight = video.offsetHeight;
+                const videoActualWidth = video.videoWidth;
+                const videoActualHeight = video.videoHeight;
+
+                const videoAspectRatio = videoActualWidth / videoActualHeight;
+                const displayAspectRatio = videoDisplayWidth / videoDisplayHeight;
+
+                let scaleX, scaleY, offsetX = 0, offsetY = 0;
+
+                if (videoAspectRatio > displayAspectRatio) {
+
+                    scaleX = videoDisplayWidth / videoActualWidth;
+                    scaleY = scaleX;
+                    offsetY = (videoDisplayHeight - (videoActualHeight * scaleY)) / 2;
+                } else {
+
+                    scaleY = videoDisplayHeight / videoActualHeight;
+                    scaleX = scaleY;
+                    offsetX = (videoDisplayWidth - (videoActualWidth * scaleX)) / 2;
+                }
+
+                detections.forEach((detection, index) => {
+                    const [x, y, width, height] = detection.bbox;
+
+                    const box = document.createElement('div');
+                    box.className = 'detection-box';
+                    box.style.position = 'absolute';
+                    box.style.left = (x * scaleX + offsetX) + 'px';
+                    box.style.top = (y * scaleY + offsetY) + 'px';
+                    box.style.width = (width * scaleX) + 'px';
+                    box.style.height = (height * scaleY) + 'px';
+                    box.style.border = '3px solid #00ff00';
+                    box.style.backgroundColor = 'rgba(0, 255, 0, 0.15)';
+                    box.style.pointerEvents = 'none';
+                    box.style.zIndex = '20';
+                    box.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)';
+
+                    const label = document.createElement('div');
+                    label.className = 'detection-label';
+                    label.textContent = `Person ${Math.round(detection.score * 100)}%`;
+                    label.style.position = 'absolute';
+                    label.style.top = '-30px';
+                    label.style.left = '0';
+                    label.style.backgroundColor = '#00ff00';
+                    label.style.color = 'black';
+                    label.style.padding = '4px 8px';
+                    label.style.fontSize = '12px';
+                    label.style.fontWeight = 'bold';
+                    label.style.borderRadius = '4px';
+                    label.style.whiteSpace = 'nowrap';
+                    label.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)';
+
+                    box.appendChild(label);
+                    overlay.appendChild(box);
+                });
+
+                detectionDisplayTimeouts[cameraId] = setTimeout(() => {
+                    const boxes = overlay.querySelectorAll('.detection-box');
+                    boxes.forEach(box => box.classList.add('fading'));
+
+                    setTimeout(() => {
+                        if (overlay) overlay.innerHTML = '';
+                    }, 300);
+                }, 4000);
+
+            }, 300); 
+        }
+
+        function shouldSendDetectionEvent(cameraId, detections) {
+            if (detections.length === 0) return false;
+
+            const currentTime = Date.now();
+            const lastTime = lastDetectionTime[cameraId] || 0;
+
+            if (currentTime - lastTime > 3000) {
+                lastDetectionTime[cameraId] = currentTime;
+                return true;
+            }
+            return false;
+        }
+
+        function sendRealtimeDetectionEvent(cameraId, detections) {
+            const camera = cameras.find(c => c.id === cameraId);
+            if (!camera) return;
+
+            const event = {
+                cameraId: cameraId,
+                cameraName: camera.name,
+                detections: detections.map(det => ({
+                    confidence: det.score,
+                    bbox: det.bbox,
+                    class: det.class
+                })),
+                timestamp: new Date().toISOString(),
+                source: 'realtime-browser'
+            };
+
+            const time = new Date().toLocaleTimeString();
+            const notification = document.createElement('div');
+            notification.className = 'notification detection';
+            notification.innerHTML = `
+                <div>
+                    <strong>Person Detection</strong> - ${camera.name}
+                    <div class="notification-time">${time}</div>
+                    <div>${detections.length} person(s) detected (Avg: ${Math.round(detectionStats.avgConfidence * 100)}%)</div>
+                </div>
+            `;
+
+            notificationList.insertBefore(notification, notificationList.firstChild);
+
+            handlePersonDetection(event);
+
+            debugLog('Real-time detection event', event);
         }
 
         window.addEventListener('load', initialize);
