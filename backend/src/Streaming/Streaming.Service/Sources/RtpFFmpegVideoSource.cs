@@ -19,7 +19,6 @@ namespace Streaming.Service.Sources
         private bool _isRunning;
         private bool _isDisposed;
         
-        // Events for RTP packets
         public event Action<IPEndPoint, SDPMediaTypesEnum, RTPPacket>? OnRtpPacketReceived;
 
         public RtpFFmpegVideoSource(string videoFilePath, int rtpPort, ILogger logger)
@@ -40,19 +39,14 @@ namespace Streaming.Service.Sources
 
             try
             {
-                // Clean up any existing SDP file
                 if (File.Exists(_sdpFilePath))
                 {
                     File.Delete(_sdpFilePath);
                 }
-
-                // Start FFmpeg process
                 await StartFFmpegProcess();
 
-                // Wait for SDP file to be created
                 await WaitForSdpFile();
 
-                // Parse SDP and setup RTP session
                 await SetupRtpSession();
 
                 _isRunning = true;
@@ -91,7 +85,6 @@ namespace Streaming.Service.Sources
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
-                    // Log important FFmpeg messages at Info level for debugging
                     if (e.Data.Contains("error") || e.Data.Contains("failed") || e.Data.Contains("unable"))
                     {
                         _logger.LogWarning($"FFmpeg: {e.Data}");
@@ -112,36 +105,35 @@ namespace Streaming.Service.Sources
 
             _logger.LogInformation($"FFmpeg process started with PID: {_ffmpegProcess.Id}");
             
-            // Give FFmpeg a moment to start and create SDP
             await Task.Delay(2000);
         }
 
         private string BuildFFmpegCommand()
         {
-            // Use a higher SSRC value to avoid conflicts
             uint ssrc = (uint)(38106908 + _rtpPort);
-            
-            return $"-fflags +genpts -re -stream_loop -1 -i \"{_videoFilePath}\" " +
-                   $"-map 0:v:0 " + // Only map the first video stream, ignore audio
-                   $"-c:v libx264 -preset ultrafast -tune zerolatency " +
-                   $"-profile:v baseline -level 3.1 " +
-                   $"-pix_fmt yuv420p " +
-                   $"-r 30 " +
-                   $"-g 30 " +
-                   $"-b:v 1000k " +
-                   $"-maxrate 1000k " +
-                   $"-bufsize 2000k " +
-                   $"-avoid_negative_ts make_zero " +
-                   $"-fflags +discardcorrupt " +
-                   $"-an " + // Explicitly disable audio
-                   $"-ssrc {ssrc} " +
-                   $"-f rtp rtp://127.0.0.1:{_rtpPort} " +
-                   $"-sdp_file \"{_sdpFilePath}\"";
-        }
+
+			return $"-fflags +genpts -re -stream_loop -1 -i \"{_videoFilePath}\" " +
+				   $"-map 0:v:0 " +
+				   $"-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:black " +
+				   $"-c:v libx264 -preset ultrafast -tune zerolatency " +
+				   $"-profile:v baseline -level 3.1 " +
+				   $"-pix_fmt yuv420p " +
+				   $"-r 30 " +
+				   $"-g 30 " +
+				   $"-b:v 2000k " +
+				   $"-maxrate 2000k " +
+				   $"-bufsize 4000k " +
+				   $"-avoid_negative_ts make_zero " +
+				   $"-fflags +discardcorrupt " +
+				   $"-an " +
+				   $"-ssrc {ssrc} " +
+				   $"-f rtp rtp://127.0.0.1:{_rtpPort} " +
+				   $"-sdp_file \"{_sdpFilePath}\"";
+		}
 
         private async Task WaitForSdpFile()
         {
-            var timeout = TimeSpan.FromSeconds(15); // Reduced timeout since we're only processing video
+            var timeout = TimeSpan.FromSeconds(15);
             var stopwatch = Stopwatch.StartNew();
 
             _logger.LogInformation($"Waiting for SDP file: {_sdpFilePath}");
@@ -150,7 +142,6 @@ namespace Streaming.Service.Sources
             {
                 await Task.Delay(500);
                 
-                // Log progress every 3 seconds
                 if (stopwatch.Elapsed.TotalSeconds % 3 < 0.5)
                 {
                     _logger.LogInformation($"Still waiting for SDP file... ({stopwatch.Elapsed.TotalSeconds:F0}s elapsed)");
@@ -159,7 +150,6 @@ namespace Streaming.Service.Sources
 
             if (!File.Exists(_sdpFilePath))
             {
-                // Log FFmpeg process status for debugging
                 if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
                 {
                     _logger.LogError($"FFmpeg process is still running but SDP file not created. Process ID: {_ffmpegProcess.Id}");
@@ -182,7 +172,6 @@ namespace Streaming.Service.Sources
 
             var sdp = SDP.ParseSDPDescription(sdpContent);
             
-            // Get the video media announcement
             var videoAnn = sdp.Media.FirstOrDefault(x => x.Media == SDPMediaTypesEnum.video);
             if (videoAnn == null)
             {
@@ -192,16 +181,13 @@ namespace Streaming.Service.Sources
             _videoFormat = videoAnn.MediaFormats.Values.First();
             _logger.LogInformation($"Video format: {_videoFormat}");
 
-            // Create RTP session
             _rtpSession = new RTPSession(false, false, false, IPAddress.Loopback, _rtpPort);
             _rtpSession.AcceptRtpFromAny = true;
 
-            // Create video track
             var videoFormats = new List<SDPAudioVideoMediaFormat> { _videoFormat.Value };
             var videoTrack = new MediaStreamTrack(SDPMediaTypesEnum.video, false, 
                 videoFormats, MediaStreamStatusEnum.RecvOnly);
             
-            // Set SSRC if available
             if (videoAnn.SsrcAttributes?.Count > 0)
             {
                 videoTrack.Ssrc = videoAnn.SsrcAttributes.First().SSRC;
@@ -211,11 +197,9 @@ namespace Streaming.Service.Sources
             _rtpSession.addTrack(videoTrack);
             _rtpSession.SetRemoteDescription(SdpType.answer, sdp);
 
-            // Set dummy destination to prevent RTCP reports to self
             var dummyEndPoint = new IPEndPoint(IPAddress.Loopback, 0);
             _rtpSession.SetDestination(SDPMediaTypesEnum.video, dummyEndPoint, dummyEndPoint);
 
-            // Wire up packet received event
             _rtpSession.OnRtpPacketReceived += (ep, media, rtpPkt) =>
             {
                 OnRtpPacketReceived?.Invoke(ep, media, rtpPkt);
@@ -246,7 +230,6 @@ namespace Streaming.Service.Sources
                 _ffmpegProcess?.Dispose();
                 _ffmpegProcess = null;
 
-                // Clean up SDP file
                 if (File.Exists(_sdpFilePath))
                 {
                     File.Delete(_sdpFilePath);

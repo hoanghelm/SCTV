@@ -29,7 +29,7 @@ namespace Streaming.Service.Sources
 			_frameRate = frameRate;
 			_targetWidth = width;
 			_targetHeight = height;
-			_frameSize = width * height * 3; // BGR24 = 3 bytes per pixel
+			_frameSize = width * height * 3;
 			_frameBuffer = new byte[_frameSize];
 		}
 
@@ -40,7 +40,6 @@ namespace Streaming.Service.Sources
 
 			try
 			{
-				// Read a complete frame from FFmpeg (fixed size for raw BGR24)
 				var totalBytesRead = 0;
 				var readBuffer = new byte[_frameSize];
 				
@@ -53,7 +52,6 @@ namespace Streaming.Service.Sources
 
 					if (bytesRead == 0)
 					{
-						// Connection lost or stream ended
 						Console.WriteLine($"RTSP stream ended or connection lost: {_streamUrl}");
 						return null;
 					}
@@ -61,7 +59,6 @@ namespace Streaming.Service.Sources
 					totalBytesRead += bytesRead;
 				}
 
-				// Create a copy of the frame data
 				var frameData = new byte[_frameSize];
 				Array.Copy(readBuffer, frameData, _frameSize);
 
@@ -70,9 +67,9 @@ namespace Streaming.Service.Sources
 					Data = frameData,
 					Width = _targetWidth,
 					Height = _targetHeight,
-					Format = VideoPixelFormatsEnum.Bgr, // FFmpeg outputs BGR24
+					Format = VideoPixelFormatsEnum.Bgr,
 					Duration = 1000 / _frameRate,
-					IsPreEncoded = false // Raw frame data for SIPSorcery to encode
+					IsPreEncoded = false
 				};
 			}
 			catch (Exception ex)
@@ -103,13 +100,11 @@ namespace Streaming.Service.Sources
 
 		private void StartFFmpegProcess()
 		{
-			// FFmpeg command to read RTSP stream and output raw BGR24 frames for SIPSorcery
-			// We go back to raw frames since SIPSorcery needs to handle the encoding pipeline
 			var ffmpegArgs = $"-i \"{_streamUrl}\" " +
 						   $"-f rawvideo -pix_fmt bgr24 " +
 						   $"-s {_targetWidth}x{_targetHeight} " +
 						   $"-r {_frameRate} " +
-						   $"-an -"; // -an = no audio, - = output to stdout
+						   $"-an -";
 
 			_ffmpegProcess = new Process
 			{
@@ -121,11 +116,10 @@ namespace Streaming.Service.Sources
 					RedirectStandardOutput = true,
 					RedirectStandardError = true,
 					CreateNoWindow = true,
-					StandardOutputEncoding = null // Important for binary data
+					StandardOutputEncoding = null
 				}
 			};
 
-			// Log FFmpeg errors for debugging
 			_ffmpegProcess.ErrorDataReceived += (sender, e) =>
 			{
 				if (!string.IsNullOrEmpty(e.Data))
@@ -205,7 +199,7 @@ namespace Streaming.Service.Sources
 			_frameRate = frameRate;
 			_targetWidth = width;
 			_targetHeight = height;
-			_frameSize = width * height * 3; // BGR24 = 3 bytes per pixel
+			_frameSize = width * height * 3;
 			_frameBuffer = new byte[_frameSize];
 		}
 
@@ -216,19 +210,17 @@ namespace Streaming.Service.Sources
 
 			try
 			{
-				var readBuffer = new byte[8192]; // 8KB chunks
+				var readBuffer = new byte[8192];
 				var bytesRead = await _ffmpegOutput.ReadAsync(readBuffer, 0, readBuffer.Length);
 				
 				if (bytesRead == 0)
 				{
-					// End of file, restart
 					await RestartVideo();
 					return null;
 				}
 
 				_frameCount++;
 
-				// Trim the buffer to actual bytes read
 				var frameData = new byte[bytesRead];
 				Array.Copy(readBuffer, frameData, bytesRead);
 				
@@ -237,7 +229,7 @@ namespace Streaming.Service.Sources
 					Data = frameData,
 					Width = _targetWidth,
 					Height = _targetHeight,
-					Format = VideoPixelFormatsEnum.Bgr, // Not used for H.264
+					Format = VideoPixelFormatsEnum.Bgr,
 					Duration = 1000 / _frameRate,
 					IsPreEncoded = true
 				};
@@ -324,13 +316,10 @@ namespace Streaming.Service.Sources
 			{
 				Console.WriteLine("Restarting video playback (loop)");
 
-				// Stop current process
 				StopFFmpegProcess();
 
-				// Small delay to ensure clean restart
 				await Task.Delay(100);
 
-				// Start new process
 				if (!_isDisposed && _isRunning)
 				{
 					StartFFmpegProcess();

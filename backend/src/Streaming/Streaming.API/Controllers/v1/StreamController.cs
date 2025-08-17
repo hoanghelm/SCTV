@@ -52,7 +52,7 @@ namespace Streaming.API.Controllers.v1
 			{
 				request.CreatedBy = _httpContextAccessor.HttpContext?.Request.Headers[HeaderInfo.USER_ID].ToString();
 				var result = await _mediator.Send(request);
-				return result; // ApiResult implements IActionResult
+				return result;
 			}
 			catch (Exception ex)
 			{
@@ -169,7 +169,6 @@ namespace Streaming.API.Controllers.v1
 			{
 				var userId = _httpContextAccessor.HttpContext?.Request.Headers[HeaderInfo.USER_ID].ToString();
 
-				// Check permissions
 				var permissionResult = await _mediator.Send(new CheckCameraPermissionQuery
 				{
 					UserId = userId,
@@ -181,7 +180,6 @@ namespace Streaming.API.Controllers.v1
 					return ApiResult.Failed(HttpCode.Forbidden, "Access denied to camera");
 				}
 
-				// Get camera details
 				var cameraResult = await _mediator.Send(new GetCameraByIdQuery
 				{
 					CameraId = cameraId
@@ -223,7 +221,6 @@ namespace Streaming.API.Controllers.v1
 
 				if (success)
 				{
-					// Create stream session record
 					var userId = _httpContextAccessor.HttpContext?.Request.Headers[HeaderInfo.USER_ID].ToString();
 					var sessionResult = await _mediator.Send(new CreateStreamSessionCommand
 					{
@@ -365,10 +362,8 @@ namespace Streaming.API.Controllers.v1
 			{
 				string streamUrl;
 				
-				// Determine stream URL based on request type and file path
 				if (!string.IsNullOrEmpty(request.VideoFilePath))
 				{
-					// Use video file - check for common video file paths
 					var videoFilePaths = new[]
 					{
 						request.VideoFilePath,

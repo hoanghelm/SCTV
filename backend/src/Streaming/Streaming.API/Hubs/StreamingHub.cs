@@ -65,7 +65,6 @@ namespace Streaming.API.Hubs
 
 			if (_userConnections.TryRemove(connectionId, out var userConnection))
 			{
-				// Remove from all camera groups
 				foreach (var cameraGroup in _cameraViewers.ToList())
 				{
 					if (cameraGroup.Value.Contains(connectionId))
@@ -73,10 +72,8 @@ namespace Streaming.API.Hubs
 						cameraGroup.Value.Remove(connectionId);
 						await Groups.RemoveFromGroupAsync(connectionId, $"camera-{cameraGroup.Key}");
 
-						// Close WebRTC connection
 						await _webRTCManager.CloseConnectionAsync($"{cameraGroup.Key}-{connectionId}");
 
-						// End stream session
 						var endSessionResult = await _mediator.Send(new EndStreamSessionCommand
 						{
 							CameraId = Guid.Parse(cameraGroup.Key),
@@ -106,7 +103,6 @@ namespace Streaming.API.Hubs
 				var userId = Context.UserIdentifier;
 				var connectionId = Context.ConnectionId;
 
-				// Check if user has permission to view this camera
 				var permissionResult = await _mediator.Send(new CheckCameraPermissionQuery
 				{
 					UserId = userId,
@@ -134,7 +130,6 @@ namespace Streaming.API.Hubs
 					};
 				}
 
-				// Get camera details
 				var cameraResult = await _mediator.Send(new GetCameraByIdQuery
 				{
 					CameraId = Guid.Parse(cameraId)
@@ -149,7 +144,6 @@ namespace Streaming.API.Hubs
 					};
 				}
 
-				// Extract camera data from ApiResult using your pattern
 				var camera = cameraResult.Value.Result as CameraViewModel;
 
 				if (camera == null || camera.Status != CameraStatus.Active.ToString())
@@ -161,11 +155,9 @@ namespace Streaming.API.Hubs
 					};
 				}
 
-				// Create WebRTC connection
 				var webRtcConnectionId = $"{cameraId}-{connectionId}";
 				var connection = await _webRTCManager.CreateConnectionAsync(webRtcConnectionId, camera.StreamUrl);
 
-				// Add to camera viewers group
 				await Groups.AddToGroupAsync(connectionId, $"camera-{cameraId}");
 
 				if (!_cameraViewers.ContainsKey(cameraId))
@@ -174,17 +166,14 @@ namespace Streaming.API.Hubs
 				}
 				_cameraViewers[cameraId].Add(connectionId);
 
-				// Create and return offer
 				var sipsorceryOffer = _webRTCManager.CreateOfferAsync(webRtcConnectionId);
 
-				// Convert SIPSorcery offer to browser-compatible format
 				var browserOffer = new
 				{
-					type = "offer", // Convert enum to string
+					type = "offer",
 					sdp = sipsorceryOffer.sdp
 				};
 
-				// Log stream session
 				var sessionResult = await _mediator.Send(new CreateStreamSessionCommand
 				{
 					CameraId = Guid.Parse(cameraId),
@@ -203,7 +192,7 @@ namespace Streaming.API.Hubs
 				return new SignalResponse
 				{
 					Success = true,
-					Data = browserOffer // Return the browser-compatible offer
+					Data = browserOffer
 				};
 			}
 			catch (Exception ex)
@@ -226,7 +215,6 @@ namespace Streaming.API.Hubs
 
 				_logger.LogInformation($"Received answer for camera {cameraId}: type={answerData.Type}, sdp length={answerData.Sdp?.Length}");
 
-				// Convert to SIPSorcery format
 				var sipsorceryAnswer = new RTCSessionDescriptionInit
 				{
 					type = RTCSdpType.answer,
@@ -261,7 +249,6 @@ namespace Streaming.API.Hubs
 
 				_logger.LogInformation($"Received ICE candidate for camera {cameraId}: {candidateData.Candidate}");
 
-				// Convert to SIPSorcery format
 				var sipsorceryCandidate = new RTCIceCandidateInit
 				{
 					candidate = candidateData.Candidate,
@@ -295,10 +282,8 @@ namespace Streaming.API.Hubs
 				var connectionId = Context.ConnectionId;
 				var webRtcConnectionId = $"{cameraId}-{connectionId}";
 
-				// Close WebRTC connection
 				await _webRTCManager.CloseConnectionAsync(webRtcConnectionId);
 
-				// Remove from camera group
 				await Groups.RemoveFromGroupAsync(connectionId, $"camera-{cameraId}");
 
 				if (_cameraViewers.ContainsKey(cameraId))
@@ -306,7 +291,6 @@ namespace Streaming.API.Hubs
 					_cameraViewers[cameraId].Remove(connectionId);
 				}
 
-				// Update stream session
 				var endSessionResult = await _mediator.Send(new EndStreamSessionCommand
 				{
 					CameraId = Guid.Parse(cameraId),
@@ -330,11 +314,9 @@ namespace Streaming.API.Hubs
 		{
 			try
 			{
-				// Send to all users viewing this camera
 				await Clients.Group($"camera-{detectionEvent.CameraId}")
 					.SendAsync("PersonDetected", detectionEvent);
 
-				// Send to users with alert permissions
 				var alertUsersResult = await _mediator.Send(new GetAlertUsersForCameraQuery
 				{
 					CameraId = Guid.Parse(detectionEvent.CameraId)
@@ -342,7 +324,6 @@ namespace Streaming.API.Hubs
 
 				if (alertUsersResult.HttpCode == HttpCode.OK)
 				{
-					// Extract alert users list from ApiResult
 					var alertUsers = alertUsersResult.Value.Result as List<string> ?? new List<string>();
 
 					foreach (var userId in alertUsers)
@@ -370,7 +351,6 @@ namespace Streaming.API.Hubs
 		{
 			try
 			{
-				// Check permissions
 				var permissionResult = await _mediator.Send(new CheckCameraControlPermissionQuery
 				{
 					UserId = Context.UserIdentifier,
@@ -397,7 +377,6 @@ namespace Streaming.API.Hubs
 					};
 				}
 
-				// Execute camera control command
 				var result = await _mediator.Send(new ExecuteCameraControlCommand
 				{
 					CameraId = Guid.Parse(cameraId),
@@ -448,7 +427,6 @@ namespace Streaming.API.Hubs
 			}
 		}
 
-		// Admin Methods
 		[Authorize(Roles = "Admin")]
 		public async Task<List<ActiveStreamInfo>> GetActiveStreams()
 		{
@@ -490,7 +468,6 @@ namespace Streaming.API.Hubs
 				catch (Exception ex)
 				{
 					_logger.LogError(ex, $"Error getting camera info for {camera.Key}");
-					// Continue with other cameras
 				}
 			}
 
@@ -498,7 +475,6 @@ namespace Streaming.API.Hubs
 		}
 	}
 
-	// Helper Classes (Keep existing structure)
 	public class UserConnection
 	{
 		public string ConnectionId { get; set; }
@@ -525,7 +501,7 @@ namespace Streaming.API.Hubs
 
 	public class Detection
 	{
-		public float[] BoundingBox { get; set; } // [x1, y1, x2, y2]
+		public float[] BoundingBox { get; set; }
 		public float Confidence { get; set; }
 		public string Label { get; set; }
 	}
@@ -541,7 +517,7 @@ namespace Streaming.API.Hubs
 
 	public class CameraControlCommand
 	{
-		public string Command { get; set; } // PTZ commands: pan, tilt, zoom, preset
+		public string Command { get; set; }
 		public Dictionary<string, object> Parameters { get; set; }
 	}
 

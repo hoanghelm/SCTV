@@ -26,7 +26,6 @@ namespace Streaming.Service.Sources
 		{
 			if (!_isRunning) return Task.FromResult<VideoFrame>(null);
 
-			// Create a simple H.264 test pattern frame for WebRTC compatibility
 			var h264Frame = CreateH264TestFrame();
 			_frameCount++;
 
@@ -35,9 +34,9 @@ namespace Streaming.Service.Sources
 				Data = h264Frame,
 				Width = _width,
 				Height = _height,
-				Format = VideoPixelFormatsEnum.Bgr, // Not used for H.264
+				Format = VideoPixelFormatsEnum.Bgr,
 				Duration = 1000 / _frameRate,
-				IsPreEncoded = true // This is H.264 encoded data
+				IsPreEncoded = true
 			};
 
 			return Task.FromResult(frame);
@@ -80,10 +79,8 @@ namespace Streaming.Service.Sources
 			var idr = new byte[baseIdr.Length];
 			Array.Copy(baseIdr, idr, baseIdr.Length);
 			
-			// Simple animation by modifying the last byte based on frame count
 			idr[idr.Length - 1] = (byte)(0x08 + (_frameCount % 16));
 
-			// Combine all NAL units
 			var frameData = new byte[sps.Length + pps.Length + idr.Length];
 			Array.Copy(sps, 0, frameData, 0, sps.Length);
 			Array.Copy(pps, 0, frameData, sps.Length, pps.Length);

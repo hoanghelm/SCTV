@@ -16,7 +16,7 @@ namespace Streaming.Service.WebRTC
 		private CancellationTokenSource _cancellationTokenSource;
 		private DateTime _createdAt;
 		private long _framesSent;
-		private static int _portCounter = 5020; // Start with even port
+		private static int _portCounter = 5020;
 
 		public WebRTCConnection(string connectionId, string streamSource, WebRTCConfiguration config, ILogger logger)
 		{
@@ -34,10 +34,8 @@ namespace Streaming.Service.WebRTC
 			{
 				_logger.LogInformation($"Initializing WebRTC connection for {_connectionId} with source: {_streamSource}");
 
-				// Start RTP video source first
 				await StartRtpVideoSource();
 
-				// Create RTCPeerConnection
 				var rtcConfig = new RTCConfiguration
 				{
 					iceServers = _config.IceServers.Select(s => new RTCIceServer
@@ -50,10 +48,8 @@ namespace Streaming.Service.WebRTC
 
 				_peerConnection = new RTCPeerConnection(rtcConfig);
 
-				// Wire up event handlers
 				SetupEventHandlers();
 
-				// Create video track with the format from RTP source
 				var videoFormat = _rtpVideoSource?.GetVideoFormat();
 				if (videoFormat != null)
 				{
@@ -82,7 +78,6 @@ namespace Streaming.Service.WebRTC
 		{
 			if (File.Exists(_streamSource))
 			{
-				// Ensure we get an even port (RTP requirement)
 				var rtpPort = Interlocked.Add(ref _portCounter, 2);
 				if (rtpPort % 2 != 0) rtpPort = Interlocked.Add(ref _portCounter, 1);
 				
@@ -154,11 +149,6 @@ namespace Streaming.Service.WebRTC
 								rtpPkt.Header.MarkerBit, rtpPkt.Header.PayloadType);
 							
 							_framesSent++;
-							
-							if (_framesSent % 100 == 0) // Log every 100 packets
-							{
-								_logger.LogDebug($"Forwarded {_framesSent} RTP packets for {_connectionId}");
-							}
 						}
 						catch (Exception ex)
 						{
