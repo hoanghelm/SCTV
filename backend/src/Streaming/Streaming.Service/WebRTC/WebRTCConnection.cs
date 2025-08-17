@@ -1,11 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
-using SIPSorcery.Media;
+using Microsoft.Extensions.Logging;
 using SIPSorcery.Net;
-using SIPSorceryMedia.Abstractions;
-using SIPSorceryMedia.FFmpeg;
-using Streaming.Service.Models;
 using Streaming.Service.Sources;
-using IVideoSource = Streaming.Service.Models.IVideoSource;
+using System.Net;
 
 namespace Streaming.Service.WebRTC
 {
@@ -15,13 +11,12 @@ namespace Streaming.Service.WebRTC
 		private readonly string _streamSource;
 		private readonly WebRTCConfiguration _config;
 		private readonly ILogger _logger;
-		private RTCPeerConnection _peerConnection;
-		private IVideoSource _customVideoSource;
-		private VideoTestPatternSource _testPatternSource;
+		private RTCPeerConnection? _peerConnection;
+		private RtpFFmpegVideoSource? _rtpVideoSource;
 		private CancellationTokenSource _cancellationTokenSource;
 		private DateTime _createdAt;
 		private long _framesSent;
-		private Timer _frameTimer;
+		private static int _portCounter = 5020; // Start with even port
 
 		public WebRTCConnection(string connectionId, string streamSource, WebRTCConfiguration config, ILogger logger)
 		{
@@ -35,17 +30,79 @@ namespace Streaming.Service.WebRTC
 
 		public async Task InitializeAsync()
 		{
-			var rtcConfig = new RTCConfiguration
+			try
 			{
-				iceServers = _config.IceServers.Select(s => new RTCIceServer
-				{
-					urls = s.Url,
-					username = s.Username,
-					credential = s.Credential
-				}).ToList()
-			};
+				_logger.LogInformation($"Initializing WebRTC connection for {_connectionId} with source: {_streamSource}");
 
-			_peerConnection = new RTCPeerConnection(rtcConfig);
+				// Start RTP video source first
+				await StartRtpVideoSource();
+
+				// Create RTCPeerConnection
+				var rtcConfig = new RTCConfiguration
+				{
+					iceServers = _config.IceServers.Select(s => new RTCIceServer
+					{
+						urls = s.Url,
+						username = s.Username,
+						credential = s.Credential
+					}).ToList()
+				};
+
+				_peerConnection = new RTCPeerConnection(rtcConfig);
+
+				// Wire up event handlers
+				SetupEventHandlers();
+
+				// Create video track with the format from RTP source
+				var videoFormat = _rtpVideoSource?.GetVideoFormat();
+				if (videoFormat != null)
+				{
+					var videoFormats = new List<SDPAudioVideoMediaFormat> { videoFormat.Value };
+					var videoTrack = new MediaStreamTrack(SDPMediaTypesEnum.video, false, 
+						videoFormats, MediaStreamStatusEnum.SendOnly);
+					_peerConnection.addTrack(videoTrack);
+					
+					_logger.LogInformation($"Added video track with format: {videoFormat}");
+				}
+				else
+				{
+					throw new InvalidOperationException("Failed to get video format from RTP source");
+				}
+
+				_logger.LogInformation($"WebRTC connection initialized for {_connectionId}");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, $"Failed to initialize WebRTC connection for {_connectionId}: {ex.Message}");
+				throw;
+			}
+		}
+
+		private async Task StartRtpVideoSource()
+		{
+			if (File.Exists(_streamSource))
+			{
+				// Ensure we get an even port (RTP requirement)
+				var rtpPort = Interlocked.Add(ref _portCounter, 2);
+				if (rtpPort % 2 != 0) rtpPort = Interlocked.Add(ref _portCounter, 1);
+				
+				_logger.LogInformation($"Creating RTP video source for file: {_streamSource} on port {rtpPort}");
+				
+				_rtpVideoSource = new RtpFFmpegVideoSource(_streamSource, rtpPort, _logger);
+				var videoFormat = await _rtpVideoSource.StartAsync();
+				
+				_logger.LogInformation($"RTP video source started with format: {videoFormat}");
+			}
+			else
+			{
+				throw new FileNotFoundException($"Video file not found: {_streamSource}");
+			}
+		}
+
+		private void SetupEventHandlers()
+		{
+			if (_peerConnection == null)
+				return;
 
 			_peerConnection.onicecandidate += (candidate) =>
 			{
@@ -58,17 +115,15 @@ namespace Streaming.Service.WebRTC
 
 				if (state == RTCPeerConnectionState.connected)
 				{
-					_logger.LogInformation($"WebRTC connected for {_connectionId} - starting video source");
-					StartVideoSource();
+					_logger.LogInformation($"WebRTC connected for {_connectionId} - starting RTP forwarding");
+					StartRtpForwarding();
 				}
 				else if (state == RTCPeerConnectionState.closed || state == RTCPeerConnectionState.failed)
 				{
-					_logger.LogWarning($"WebRTC connection failed/closed for {_connectionId} - stopping video");
-					StopVideoSource();
+					_logger.LogWarning($"WebRTC connection failed/closed for {_connectionId}");
 				}
 			};
 
-			// Add more detailed monitoring
 			_peerConnection.oniceconnectionstatechange += (state) =>
 			{
 				_logger.LogInformation($"ICE connection state for {_connectionId}: {state}");
@@ -79,158 +134,41 @@ namespace Streaming.Service.WebRTC
 				_logger.LogInformation($"ICE gathering state for {_connectionId}: {state}");
 			};
 
-			_logger.LogInformation($"Creating basic video track for {_connectionId}");
-			
-			var videoFormats = new List<VideoFormat>
+			_peerConnection.onsignalingstatechange += () =>
 			{
-				new VideoFormat(VideoCodecsEnum.H264, 96), // H.264 is most widely supported
-				new VideoFormat(VideoCodecsEnum.VP8, 97),  // VP8 as backup
+				_logger.LogInformation($"Signaling state for {_connectionId}: {_peerConnection?.signalingState}");
 			};
-
-			var videoTrack = new MediaStreamTrack(videoFormats, MediaStreamStatusEnum.SendOnly);
-			_peerConnection.addTrack(videoTrack);
-
-			// Also create our custom source to read the real video (for monitoring)
-			_customVideoSource = await CreateVideoSourceAsync();
-
-			_logger.LogInformation($"WebRTC connection initialized for {_connectionId} - will send test pattern frames");
-			_logger.LogInformation($"Real video source: {GetSourceType()}");
 		}
 
-		private async Task<IVideoSource> CreateVideoSourceAsync()
+		private void StartRtpForwarding()
 		{
-			try
+			if (_rtpVideoSource != null && _peerConnection != null)
 			{
-				if (_streamSource.StartsWith("rtsp://") || _streamSource.StartsWith("http://"))
+				_rtpVideoSource.OnRtpPacketReceived += (ep, media, rtpPkt) =>
 				{
-					_logger.LogInformation($"Creating RTSP/HTTP stream source: {_streamSource}");
-					return new FFmpegVideoStreamSource(_streamSource, _config.VideoFrameRate);
-				}
-				else if (_streamSource.StartsWith("test://"))
-				{
-					_logger.LogInformation("Creating test pattern source");
-					return new TestPatternVideoSource(_config.VideoWidth, _config.VideoHeight, _config.VideoFrameRate);
-				}
-				else if (File.Exists(_streamSource))
-				{
-					_logger.LogInformation($"Creating video file source: {_streamSource}");
-					return new FFmpegFileVideoSource(_streamSource, _config.VideoFrameRate);
-				}
-				else
-				{
-					_logger.LogWarning($"Stream source not recognized: {_streamSource}, using test pattern");
-					return new TestPatternVideoSource(_config.VideoWidth, _config.VideoHeight, _config.VideoFrameRate);
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, $"Failed to create video source for {_streamSource}, using test pattern");
-				return new TestPatternVideoSource(_config.VideoWidth, _config.VideoHeight, _config.VideoFrameRate);
-			}
-		}
-
-		private void StartVideoSource()
-		{
-			try
-			{
-				var sourceType = GetSourceType();
-				_logger.LogInformation($"Starting video source for {_connectionId} - Type: {sourceType}, StreamSource: {_streamSource}");
-
-				if (_customVideoSource != null)
-				{
-					_logger.LogInformation($"Starting real video streaming from {sourceType}");
-					_customVideoSource.Start();
-					
-					var frameInterval = 1000 / _config.VideoFrameRate;
-					_frameTimer = new Timer(SendRealVideoFrame, null, 0, frameInterval);
-					_logger.LogInformation($"Frame timer started for {_connectionId}, interval: {frameInterval}ms");
-				}
-				else
-				{
-					_logger.LogError($"No video source available for {_connectionId} - Stream source: {_streamSource}");
-					_logger.LogError($"Source type detected as: {sourceType}");
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, $"Failed to start video source for {_connectionId}");
-			}
-		}
-
-
-		private void StopVideoSource()
-		{
-			_frameTimer?.Dispose();
-			_frameTimer = null;
-			
-			// SIPSorcery test pattern source stops automatically when peer connection closes
-			_customVideoSource?.Stop();
-			
-			_logger.LogInformation($"Stopped video sources for {_connectionId}");
-		}
-
-		private async void SendRealVideoFrame(object state)
-		{
-			if (_customVideoSource == null)
-			{
-				_logger.LogWarning($"Custom video source is null for {_connectionId}");
-				return;
-			}
-
-			try
-			{
-				var frame = await _customVideoSource.GetNextFrameAsync();
-				if (frame != null && frame.Data != null && frame.Data.Length > 0)
-				{
-					await SendVideoFrame(frame);
-					_framesSent++;
-				}
-				else
-				{
-					if (_framesSent % 60 == 0) // Log when no frames are available
+					if (media == SDPMediaTypesEnum.video && _peerConnection.VideoDestinationEndPoint != null)
 					{
-						_logger.LogWarning($"No frame data available from video source for {_connectionId}");
+						try
+						{
+							_peerConnection.SendRtpRaw(media, rtpPkt.Payload, rtpPkt.Header.Timestamp, 
+								rtpPkt.Header.MarkerBit, rtpPkt.Header.PayloadType);
+							
+							_framesSent++;
+							
+							if (_framesSent % 100 == 0) // Log every 100 packets
+							{
+								_logger.LogDebug($"Forwarded {_framesSent} RTP packets for {_connectionId}");
+							}
+						}
+						catch (Exception ex)
+						{
+							_logger.LogError(ex, $"Error forwarding RTP packet for {_connectionId}: {ex.Message}");
+						}
 					}
-				}
+				};
+				
+				_logger.LogInformation($"RTP forwarding started for {_connectionId}");
 			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, $"Error sending real video frame for {_connectionId}: {ex.Message}");
-			}
-		}
-
-		private async Task SendVideoFrame(VideoFrame frame)
-		{
-			try
-			{
-				var timestamp = (uint)(DateTime.UtcNow.Subtract(DateTime.UnixEpoch).TotalMilliseconds * 90);
-
-				if (frame.IsPreEncoded)
-				{
-					// Frame is already H.264 encoded (from video file)
-					_peerConnection.SendVideo(timestamp, frame.Data);
-				}
-				else
-				{
-					// Raw frame from RTSP - need proper encoding
-					// For now, skip raw frames until we implement proper encoding
-					_logger.LogWarning($"Skipping raw frame - need to implement proper H.264 encoding for RTSP");
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, $"Error sending video frame for {_connectionId}: {ex.Message}");
-			}
-		}
-
-		private VideoPixelFormatsEnum ConvertToSIPSorceryFormat(VideoPixelFormatsEnum format)
-		{
-			return format switch
-			{
-				VideoPixelFormatsEnum.Bgr => VideoPixelFormatsEnum.Bgr,
-				VideoPixelFormatsEnum.Rgb => VideoPixelFormatsEnum.Rgb,
-				_ => VideoPixelFormatsEnum.Bgr
-			};
 		}
 
 		public RTCSessionDescriptionInit CreateOfferAsync()
@@ -238,11 +176,31 @@ namespace Streaming.Service.WebRTC
 			if (_peerConnection == null)
 				throw new InvalidOperationException("Peer connection not initialized");
 
-			var offer = _peerConnection.createOffer(new RTCOfferOptions());
-			_peerConnection.setLocalDescription(offer);
+			try
+			{
+				_logger.LogInformation($"Creating offer for {_connectionId}");
+				
+				var offer = _peerConnection.createOffer(new RTCOfferOptions());
+				
+				if (offer == null)
+				{
+					throw new InvalidOperationException($"Failed to create offer for {_connectionId}");
+				}
 
-			_logger.LogInformation($"Created offer for {_connectionId}");
-			return offer;
+				_logger.LogInformation($"Setting local description for {_connectionId}, SDP length: {offer.sdp?.Length ?? 0}");
+				
+				var setLocalResult = _peerConnection.setLocalDescription(offer);
+				
+				_logger.LogInformation($"Set local description result for {_connectionId}: {setLocalResult}");
+
+				_logger.LogInformation($"Successfully created and set offer for {_connectionId}");
+				return offer;
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, $"Error creating offer for {_connectionId}: {ex.Message}");
+				throw;
+			}
 		}
 
 		public bool SetAnswerAsync(RTCSessionDescriptionInit answer)
@@ -250,15 +208,36 @@ namespace Streaming.Service.WebRTC
 			try
 			{
 				if (_peerConnection == null)
+				{
+					_logger.LogError($"Peer connection is null for {_connectionId}");
 					return false;
+				}
+
+				if (answer == null)
+				{
+					_logger.LogError($"Answer is null for {_connectionId}");
+					return false;
+				}
+
+				_logger.LogInformation($"Setting remote description for {_connectionId}, type: {answer.type}, SDP length: {answer.sdp?.Length ?? 0}");
+				_logger.LogInformation($"Current signaling state: {_peerConnection.signalingState}");
 
 				var result = _peerConnection.setRemoteDescription(answer);
-				_logger.LogInformation($"Set remote description for {_connectionId}");
-				return result == SetDescriptionResultEnum.OK;
+				
+				if (result == SetDescriptionResultEnum.OK)
+				{
+					_logger.LogInformation($"Successfully set remote description for {_connectionId}");
+					return true;
+				}
+				else
+				{
+					_logger.LogError($"Failed to set remote description for {_connectionId}, result: {result}");
+					return false;
+				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"Failed to set answer for {_connectionId}: {ex.Message}");
+				_logger.LogError(ex, $"Exception setting answer for {_connectionId}: {ex.Message}");
 				return false;
 			}
 		}
@@ -291,29 +270,17 @@ namespace Streaming.Service.WebRTC
 				["framesSent"] = _framesSent,
 				["uptime"] = DateTime.UtcNow - _createdAt,
 				["streamSource"] = _streamSource,
-				["sourceType"] = GetSourceType()
+				["sourceType"] = "RtpFFmpeg"
 			};
-		}
-
-		private string GetSourceType()
-		{
-			if (_streamSource.StartsWith("rtsp://") || _streamSource.StartsWith("http://"))
-				return "RtspStream";
-			else if (File.Exists(_streamSource))
-				return "VideoFile";
-			else if (_streamSource.StartsWith("test://"))
-				return "TestPattern";
-			else
-				return "Unknown";
 		}
 
 		public async Task CloseAsync()
 		{
 			_logger.LogInformation($"Closing WebRTC connection {_connectionId}");
 
-			StopVideoSource();
-
 			_cancellationTokenSource?.Cancel();
+
+			_rtpVideoSource?.Stop();
 
 			_peerConnection?.close();
 		}
@@ -331,8 +298,7 @@ namespace Streaming.Service.WebRTC
 				_logger.LogError(ex, $"Error during cleanup for {_connectionId}");
 			}
 
-			_customVideoSource?.Dispose();
-			_testPatternSource?.Dispose();
+			_rtpVideoSource?.Dispose();
 			_peerConnection?.Dispose();
 			_cancellationTokenSource?.Dispose();
 		}
