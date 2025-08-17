@@ -112,8 +112,8 @@ namespace Streaming.Service.Sources
 
             _logger.LogInformation($"FFmpeg process started with PID: {_ffmpegProcess.Id}");
             
-            // Give FFmpeg a moment to start
-            await Task.Delay(1000);
+            // Give FFmpeg a moment to start and create SDP
+            await Task.Delay(2000);
         }
 
         private string BuildFFmpegCommand()
@@ -122,6 +122,7 @@ namespace Streaming.Service.Sources
             uint ssrc = (uint)(38106908 + _rtpPort);
             
             return $"-fflags +genpts -re -stream_loop -1 -i \"{_videoFilePath}\" " +
+                   $"-map 0:v:0 " + // Only map the first video stream, ignore audio
                    $"-c:v libx264 -preset ultrafast -tune zerolatency " +
                    $"-profile:v baseline -level 3.1 " +
                    $"-pix_fmt yuv420p " +
@@ -132,6 +133,7 @@ namespace Streaming.Service.Sources
                    $"-bufsize 2000k " +
                    $"-avoid_negative_ts make_zero " +
                    $"-fflags +discardcorrupt " +
+                   $"-an " + // Explicitly disable audio
                    $"-ssrc {ssrc} " +
                    $"-f rtp rtp://127.0.0.1:{_rtpPort} " +
                    $"-sdp_file \"{_sdpFilePath}\"";
@@ -139,7 +141,7 @@ namespace Streaming.Service.Sources
 
         private async Task WaitForSdpFile()
         {
-            var timeout = TimeSpan.FromSeconds(30); // Increased timeout for complex videos
+            var timeout = TimeSpan.FromSeconds(15); // Reduced timeout since we're only processing video
             var stopwatch = Stopwatch.StartNew();
 
             _logger.LogInformation($"Waiting for SDP file: {_sdpFilePath}");
@@ -148,8 +150,8 @@ namespace Streaming.Service.Sources
             {
                 await Task.Delay(500);
                 
-                // Log progress every 5 seconds
-                if (stopwatch.Elapsed.TotalSeconds % 5 < 0.5)
+                // Log progress every 3 seconds
+                if (stopwatch.Elapsed.TotalSeconds % 3 < 0.5)
                 {
                     _logger.LogInformation($"Still waiting for SDP file... ({stopwatch.Elapsed.TotalSeconds:F0}s elapsed)");
                 }
