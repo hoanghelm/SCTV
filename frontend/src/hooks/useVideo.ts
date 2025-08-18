@@ -45,7 +45,6 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
   const [detectionDisplayTimeout, setDetectionDisplayTimeout] = useState<NodeJS.Timeout | null>(null)
   const maxRetries = 3
 
-  // Initialize detection model on mount
   useEffect(() => {
     detectionService.initialize().then(success => {
       console.log('Detection model initialization:', success ? 'success' : 'failed')
@@ -70,54 +69,49 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     detectionService.startDetectionForVideo(
       cameraId,
       video,
-      // Handle detection overlay updates with smooth transitions
+
       (detections: DetectionResult[]) => {
-        // Clear any existing timeout
+
         if (detectionDisplayTimeout) {
           clearTimeout(detectionDisplayTimeout)
         }
 
-        // If we have existing detections, apply fade-out effect first
         if (realtimeDetections.length > 0) {
-          // Mark existing boxes as fading
+
           setRealtimeDetections(prev => prev.map(det => ({ ...det, fading: true } as any)))
-          
-          // Wait for fade-out, then show new detections
+
           setTimeout(() => {
             setRealtimeDetections(detections)
-            
-            // Auto-hide detections after 4 seconds (same as index.html)
+
             const timeout = setTimeout(() => {
-              // Fade out before removing
+
               setRealtimeDetections(prev => prev.map(det => ({ ...det, fading: true } as any)))
               setTimeout(() => {
                 setRealtimeDetections([])
-              }, 150) // Match CSS transition time
+              }, 150) 
             }, 4000)
-            
+
             setDetectionDisplayTimeout(timeout)
-          }, 100) // Small delay for smooth transition
+          }, 100) 
         } else {
-          // No existing detections, show immediately
+
           setRealtimeDetections(detections)
-          
-          // Auto-hide detections after 4 seconds
+
           const timeout = setTimeout(() => {
-            // Fade out before removing
+
             setRealtimeDetections(prev => prev.map(det => ({ ...det, fading: true } as any)))
             setTimeout(() => {
               setRealtimeDetections([])
-            }, 150) // Match CSS transition time
+            }, 150) 
           }, 4000)
-          
+
           setDetectionDisplayTimeout(timeout)
         }
       },
-      // Handle realtime detection events for notifications
+
       (detections: DetectionResult[]) => {
         console.log('Realtime detection event', detections)
-        
-        // Send notification (same as index.html logic)
+
         const event = {
           cameraId: cameraId,
           cameraName: `Camera ${cameraId}`,
@@ -128,10 +122,9 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
           })),
           timestamp: new Date().toISOString(),
           source: 'realtime-browser',
-          frameImageBase64: null // Could add frame capture here if needed
+          frameImageBase64: null 
         }
-        
-        // Dispatch to notification system
+
         window.dispatchEvent(new CustomEvent('personDetected', { detail: event }))
         console.log('Person detection event dispatched:', event)
       }
@@ -141,8 +134,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
   const stopDetection = useCallback(() => {
     detectionService.stopDetectionForVideo(cameraId)
     setRealtimeDetections([])
-    
-    // Clear any pending display timeout
+
     if (detectionDisplayTimeout) {
       clearTimeout(detectionDisplayTimeout)
       setDetectionDisplayTimeout(null)
@@ -151,12 +143,12 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
 
   const setupWebRTC = useCallback(async (offer: RTCSessionDescriptionInit) => {
     try {
-      // Clean up any existing peer connection first
+
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close()
         peerConnectionRef.current = null
       }
-      
+
       const pcConfig = {
         iceServers: ICE_SERVERS,
         iceCandidatePoolSize: 10,
@@ -167,7 +159,6 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
 
       const pc = new RTCPeerConnection(pcConfig)
       peerConnectionRef.current = pc
-      
 
       pc.ontrack = (event) => {
         console.log('Received track event', {
@@ -191,7 +182,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
               muted: t.muted
             }))
           })
-          
+
           const video = videoRef.current
           if (!video) {
             console.error('Video element not available when stream received')
@@ -201,7 +192,6 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
             return
           }
 
-          // Add extensive event listeners for debugging
           video.addEventListener('loadstart', () => console.log('Video: loadstart event'))
           video.addEventListener('loadedmetadata', () => {
             console.log('Video: metadata loaded', {
@@ -228,10 +218,9 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
               message: target?.error?.message
             })
           })
-          
+
           video.srcObject = stream
-          
-          // Wait for metadata to ensure video is ready
+
           video.addEventListener('loadedmetadata', () => {
             const playPromise = video.play()
             if (playPromise !== undefined) {
@@ -239,13 +228,12 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
                 console.log('Video started playing successfully')
                 setStatus('connected')
                 setIsLoading(false)
-                
-                // Start detection after video is playing and has dimensions
+
                 setTimeout(() => {
                   if (video.videoWidth > 0 && video.videoHeight > 0) {
                     startDetection(video)
                   }
-                }, 2000) // Same delay as index.html
+                }, 2000) 
               }).catch((err) => {
                 console.log('Failed to play video', err)
                 if (err.name === 'NotAllowedError') {
@@ -285,11 +273,11 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState
         console.log('Connection state changed', state)
-        
+
         switch (state) {
           case 'connected':
             console.log('WebRTC connection established successfully')
-            // Only update if we're not already connected to prevent state confusion
+
             if (status !== 'connected') {
               setStatus('connected')
               setError(null)
@@ -345,11 +333,10 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
         console.log('ICE gathering state', pc.iceGatheringState)
       }
 
-      // Validate the offer before setting it
       if (!offer || !offer.type || !offer.sdp) {
         throw new Error('Invalid offer received from server')
       }
-      
+
       try {
         console.log('Setting remote description', offer)
         await pc.setRemoteDescription(offer)
@@ -358,7 +345,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
         console.error('Failed to set remote description:', error)
         throw new Error(`Failed to set remote description: ${error}`)
       }
-      
+
       let answer: RTCSessionDescriptionInit
       try {
         console.log('Creating answer')
@@ -371,7 +358,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
         console.error('Failed to create answer:', error)
         throw new Error(`Failed to create answer: ${error}`)
       }
-      
+
       try {
         console.log('Setting local description')
         await pc.setLocalDescription(answer)
@@ -380,7 +367,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
         console.error('Failed to set local description:', error)
         throw new Error(`Failed to set local description: ${error}`)
       }
-      
+
       let answerResponse: any
       try {
         console.log('Sending answer to SignalR', answer)
@@ -389,13 +376,12 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
       } catch (error) {
         throw new Error(`Failed to send answer to server: ${error}`)
       }
-      
+
       if (!answerResponse || !answerResponse.success) {
         console.error('Answer response indicates failure:', answerResponse)
         throw new Error('Server rejected answer: ' + (answerResponse?.error || answerResponse?.message || 'Unknown error'))
       }
-      
-      
+
       console.log('Connection successful for camera', cameraId)
 
     } catch (error) {
@@ -446,18 +432,16 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
   }, [])
 
   const connect = useCallback(async () => {
-    // Prevent duplicate connection attempts
+
     if (status === 'connecting' || status === 'connected') {
       console.log(`Connection attempt ignored - already ${status}`)
       return
     }
-    
-    // Use centralized connection manager to prevent race conditions
+
     if (!videoConnectionManager.canConnect(cameraId)) {
       return
     }
-    
-    // Prevent infinite retries
+
     const currentRetryCount = videoConnectionManager.getRetryCount(cameraId)
     if (currentRetryCount >= maxRetries) {
       setError('Maximum retry attempts exceeded. Please check your camera and network connection.')
@@ -471,17 +455,16 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
       setIsLoading(true)
       setStatus('connecting')
       setError(null)
-      
+
       console.log(`Connecting to camera ${cameraId}, attempt ${currentRetryCount + 1}/${maxRetries}`)
-      
-      // Ensure SignalR is connected with retry logic
+
       let signalRRetries = 0
       const maxSignalRRetries = 3
       while (!signalRService.isConnected() && signalRRetries < maxSignalRRetries) {
         console.log(`SignalR not connected, attempting to connect... (${signalRRetries + 1}/${maxSignalRRetries})`)
         try {
           await signalRService.connect()
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for connection to stabilize
+          await new Promise(resolve => setTimeout(resolve, 1000)) 
         } catch (err) {
           console.warn(`SignalR connection attempt ${signalRRetries + 1} failed:`, err)
           signalRRetries++
@@ -490,13 +473,13 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
           }
         }
       }
-      
+
       if (!signalRService.isConnected()) {
         throw new Error('SignalR connection failed after multiple attempts')
       }
 
       const response = await signalRService.requestCameraStream(cameraId)
-      
+
       if (response.success && response.data) {
         await setupWebRTC(response.data)
       } else {
@@ -505,8 +488,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     } catch (error) {
       console.error('Connection error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Connection failed'
-      
-      // Provide more specific error messages
+
       let userFriendlyMessage = errorMessage
       if (errorMessage.includes('SignalR')) {
         userFriendlyMessage = 'Unable to connect to streaming service. Please check your network connection.'
@@ -515,7 +497,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
       } else if (errorMessage.includes('WebRTC')) {
         userFriendlyMessage = 'Failed to establish video connection. Please try again.'
       }
-      
+
       setError(userFriendlyMessage)
       setStatus('error')
       setIsLoading(false)
@@ -525,24 +507,21 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
 
   const disconnect = useCallback(async () => {
     try {
-      // Stop detection first
+
       stopDetection()
-      
-      // Close peer connection first
+
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close()
         peerConnectionRef.current = null
       }
 
-      // Clean up video element properly
       if (videoRef.current) {
         const video = videoRef.current
         video.pause()
         video.srcObject = null
-        video.load() // Reset video element state
+        video.load() 
       }
 
-      // Stop camera stream on server
       if (signalRService.isConnected()) {
         try {
           await signalRService.stopCameraStream(cameraId)
@@ -550,7 +529,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
           console.warn('Failed to stop camera stream on server:', err)
         }
       }
-      
+
       setStatus('disconnected')
       setStats(null)
       setDetections([])
@@ -558,14 +537,12 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
       setError(null)
       setIsLoading(false)
       setRetryCount(0)
-      
-      // Clear detection timeout
+
       if (detectionDisplayTimeout) {
         clearTimeout(detectionDisplayTimeout)
         setDetectionDisplayTimeout(null)
       }
-      
-      // Use centralized managers
+
       videoConnectionManager.disconnect(cameraId)
       connectionManager.releaseConnection(cameraId)
     } catch (error) {
@@ -577,7 +554,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     const handlePersonDetected = (event: any) => {
       if (event.cameraId === cameraId) {
         setDetections(event.detections || [])
-        
+
         setTimeout(() => {
           setDetections([])
         }, 3000)
@@ -587,7 +564,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     signalRService.onPersonDetected(handlePersonDetected)
 
     return () => {
-      // Clean disconnect on component unmount
+
       disconnect()
     }
   }, [cameraId])
@@ -596,28 +573,23 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     if (status === 'connecting' || status === 'connected') {
       return
     }
-    
-    // Prevent rapid retries
+
     if (Date.now() - lastRetryTime < 5000) {
       console.log('Retry blocked - too soon since last attempt')
       return
     }
     setLastRetryTime(Date.now())
-    
+
     setStatus('reconnecting')
     setError(null)
-    
-    // Clean up existing connection first
+
     await disconnect()
-    
-    // Wait longer before retrying to prevent loops
+
     await new Promise(resolve => setTimeout(resolve, 3000))
-    
-    // Attempt to reconnect
+
     await connect()
   }, [status, lastRetryTime, disconnect, connect])
-  
-  // Cleanup on unmount
+
   useEffect(() => {
     return () => {
       videoConnectionManager.cleanup(cameraId)

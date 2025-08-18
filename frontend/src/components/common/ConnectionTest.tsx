@@ -42,7 +42,6 @@ export const ConnectionTest: React.FC<ConnectionTestProps> = ({ apiUrl }) => {
     setResult(null)
     
     try {
-      // Test basic API connectivity
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000)
       

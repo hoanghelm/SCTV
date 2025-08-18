@@ -111,7 +111,7 @@ export const NotificationPanel: React.FC = () => {
         cameraName: detection.cameraName || `Camera ${detection.cameraId}`
       }
 
-      setNotifications(prev => [newNotification, ...prev.slice(0, 49)]) // Keep max 50 notifications
+      setNotifications(prev => [newNotification, ...prev.slice(0, 49)])
     }
 
     window.addEventListener('personDetected', handlePersonDetected as EventListener)
@@ -172,7 +172,6 @@ export const NotificationPanel: React.FC = () => {
               src={`data:image/jpeg;base64,${notification.frameImageBase64}`}
               alt="Detection frame"
               onClick={() => {
-                // Could open modal here
                 console.log('Show detection image')
               }}
             />

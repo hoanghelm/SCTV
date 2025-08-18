@@ -138,7 +138,6 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
     retry
   } = useVideo(camera.id)
   
-  // Set the video ref immediately on first render - only once
   React.useEffect(() => {
     if (videoRef.current) {
       const video = videoRef.current
@@ -148,11 +147,10 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
       video.controls = true
       console.log('Video element configured for camera:', camera.id)
     }
-  }, []) // Remove camera.id dependency to prevent re-runs
+  }, [])
 
   React.useEffect(() => {
     if (camera.status === 'Active' && signalRConnected) {
-      // Add a small delay to prevent race conditions
       const timeoutId = setTimeout(() => {
         connect()
       }, 100)
@@ -161,14 +159,12 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
     }
   }, [camera.id, camera.status, signalRConnected, connect])
   
-  // Only cleanup on unmount - not on every dependency change
   React.useEffect(() => {
     return () => {
       disconnect()
     }
   }, [])
 
-  // Calculate detection box positions based on video dimensions (same logic as index.html)
   const calculateDetectionBoxStyle = (detection: any) => {
     const video = videoRef.current
     if (!video || video.videoWidth === 0) return {}
@@ -184,12 +180,10 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
     let scaleX: number, scaleY: number, offsetX = 0, offsetY = 0
 
     if (videoAspectRatio > displayAspectRatio) {
-      // Video is wider than display area
       scaleX = videoDisplayWidth / videoActualWidth
       scaleY = scaleX
       offsetY = (videoDisplayHeight - (videoActualHeight * scaleY)) / 2
     } else {
-      // Video is taller than display area
       scaleY = videoDisplayHeight / videoActualHeight
       scaleX = scaleY
       offsetX = (videoDisplayWidth - (videoActualWidth * scaleX)) / 2

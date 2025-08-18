@@ -30,7 +30,6 @@ export const useSignalR = (): UseSignalRReturn => {
   }, [dispatch])
 
   const connect = useCallback(async (apiUrl?: string, authToken?: string) => {
-    // Check current service state, not just local state
     if (signalRService.isConnected()) {
       setIsConnected(true)
       setIsConnecting(false)

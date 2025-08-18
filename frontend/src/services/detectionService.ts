@@ -1,5 +1,5 @@
 import * as tf from '@tensorflow/tfjs'
-// Import platform-specific backends
+
 import '@tensorflow/tfjs-backend-webgl'
 import '@tensorflow/tfjs-backend-cpu'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
@@ -7,7 +7,7 @@ import * as cocoSsd from '@tensorflow-models/coco-ssd'
 export interface DetectionResult {
   class: string
   score: number
-  bbox: [number, number, number, number] // [x, y, width, height]
+  bbox: [number, number, number, number] 
 }
 
 export interface DetectionStats {
@@ -36,8 +36,7 @@ class DetectionService {
     try {
       this.isLoading = true
       console.log('Initializing TensorFlow.js...')
-      
-      // Try to set WebGL backend first, fallback to CPU
+
       try {
         await tf.setBackend('webgl')
         console.log('WebGL backend set successfully')
@@ -46,17 +45,15 @@ class DetectionService {
         await tf.setBackend('cpu')
         console.log('CPU backend set successfully')
       }
-      
-      // Ensure TensorFlow.js is ready
+
       await tf.ready()
       console.log('TensorFlow.js backend:', tf.getBackend())
-      
+
       console.log('Loading COCO-SSD detection model...')
-      
-      // Load with same config as index.html
+
       this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' })
       this.isEnabled = true
-      
+
       console.log('COCO-SSD model loaded successfully')
       return true
     } catch (error) {
@@ -78,10 +75,9 @@ class DetectionService {
 
     try {
       const startTime = performance.now()
-      
+
       const predictions = await this.model.detect(video)
-      
-      // Filter for persons with confidence > 0.4 (same as index.html)
+
       const personDetections = predictions
         .filter((prediction: any) => 
           prediction.class === 'person' && prediction.score > 0.4
@@ -94,8 +90,7 @@ class DetectionService {
 
       const endTime = performance.now()
       const detectionTime = endTime - startTime
-      
-      // Update stats (same as index.html)
+
       this.stats.fps = Math.round(1000 / detectionTime)
       if (personDetections.length > 0) {
         this.stats.totalDetections += personDetections.length
@@ -120,19 +115,17 @@ class DetectionService {
     }
 
     console.log('Starting detection for camera:', cameraId)
-    
+
     const interval = setInterval(async () => {
       const detections = await this.detectPersonsInVideo(video)
-      
-      // Always call onDetection for overlay updates
+
       onDetection(detections)
-      
-      // Send realtime events (same logic as index.html)
+
       if (this.shouldSendDetectionEvent(cameraId, detections) && onRealtimeEvent) {
         onRealtimeEvent(detections)
       }
-    }, 1000) // Same interval as index.html
-    
+    }, 1000) 
+
     this.detectionIntervals.set(cameraId, interval)
   }
 
@@ -160,7 +153,6 @@ class DetectionService {
     const currentTime = Date.now()
     const lastTime = this.lastDetectionTime.get(cameraId) || 0
 
-    // Same 3-second throttle as index.html
     if (currentTime - lastTime > 3000) {
       this.lastDetectionTime.set(cameraId, currentTime)
       return true

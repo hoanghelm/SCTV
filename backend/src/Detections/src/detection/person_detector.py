@@ -32,7 +32,7 @@ class PersonDetector:
         model_path: str = "yolov8n.pt",
         confidence_threshold: float = 0.5,
         nms_threshold: float = 0.4,
-        process_every_n_frames: int = 5
+        process_every_n_frames: int = 15
     ):
         self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
@@ -42,6 +42,7 @@ class PersonDetector:
         self.api_base_url = os.getenv('API_BASE_URL', 'http://localhost:5004')
         self.frame_buffer = {}  # Store recent frames for each camera
         self.detection_cooldown = {}  # Prevent spam detections
+        self.detection_history = {}  # Track detection consistency
         
     # async def initialize_kafka(self, bootstrap_servers: str = None):
     #     """Initialize Kafka producer for sending detection events"""
@@ -102,15 +103,36 @@ class PersonDetector:
             return []
     
     def should_send_detection(self, camera_id: str, detections: List[Dict]) -> bool:
-        """Check if we should send this detection event (cooldown logic)"""
+        """Check if we should send this detection event with improved smoothing logic"""
         if not detections:
+            # Clear history if no detections
+            if camera_id in self.detection_history:
+                self.detection_history[camera_id].clear()
             return False
             
         current_time = time.time()
-        last_detection_time = self.detection_cooldown.get(camera_id, 0)
         
-        # Send detection if cooldown period has passed (e.g., 5 seconds)
-        if current_time - last_detection_time > 5.0:
+        # Initialize history for new camera
+        if camera_id not in self.detection_history:
+            self.detection_history[camera_id] = deque(maxlen=5)
+        
+        # Add current detection count to history
+        self.detection_history[camera_id].append(len(detections))
+        
+        # Only send if we have consistent detections over multiple frames
+        if len(self.detection_history[camera_id]) < 3:
+            return False
+        
+        # Check if detections are consistent (at least 2 out of last 3 frames had detections)
+        recent_detections = list(self.detection_history[camera_id])[-3:]
+        detection_frames = sum(1 for count in recent_detections if count > 0)
+        
+        if detection_frames < 2:
+            return False
+        
+        # Apply cooldown - increased to 10 seconds for smoother experience
+        last_detection_time = self.detection_cooldown.get(camera_id, 0)
+        if current_time - last_detection_time > 10.0:
             self.detection_cooldown[camera_id] = current_time
             return True
             
@@ -251,8 +273,8 @@ class PersonDetector:
                     avg_fps = sum(fps_counter) / len(fps_counter)
                     logger.debug(f"Camera {camera_id} - FPS: {avg_fps:.2f}")
                 
-                # Control frame rate
-                await asyncio.sleep(max(0, (1.0/30) - process_time))
+                # Control frame rate - slower processing for smoother detection
+                await asyncio.sleep(max(0, (1.0/20) - process_time))
                 
         except Exception as e:
             logger.error(f"Error processing stream for camera {camera_id}: {e}")
@@ -343,11 +365,34 @@ class StreamProcessor:
     async def fetch_active_cameras(self) -> List[Dict]:
         """Fetch list of active cameras from API"""
         try:
-            async with aiohttp.ClientSession() as session:
+            # Create SSL context that allows self-signed certificates for localhost
+            import ssl
+            ssl_context = ssl.create_default_context()
+            if 'localhost' in self.api_base_url or '127.0.0.1' in self.api_base_url:
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            async with aiohttp.ClientSession(connector=connector) as session:
                 async with session.get(f"{self.api_base_url}/api/v1/stream/cameras/active") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        return data.get('result', {}).get('items', [])
+                        # Handle different response structures
+                        if isinstance(data, list):
+                            return data
+                        elif isinstance(data, dict):
+                            # Try different nested structures
+                            if 'result' in data:
+                                result = data['result']
+                                if isinstance(result, list):
+                                    return result
+                                elif isinstance(result, dict) and 'items' in result:
+                                    return result['items']
+                            elif 'items' in data:
+                                return data['items']
+                            elif 'data' in data:
+                                return data['data'] if isinstance(data['data'], list) else []
+                        return []
                     else:
                         logger.error(f"Failed to fetch cameras: {resp.status}")
                         return []

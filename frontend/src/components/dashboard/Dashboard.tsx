@@ -64,12 +64,10 @@ export const Dashboard: React.FC = () => {
   }, [dispatch])
 
   useEffect(() => {
-    // Only connect if not already connected/connecting and API URL is valid
     if (!isConnected && !isConnecting && apiUrl.trim()) {
-      // Debounce connection attempts to prevent multiple concurrent connections
       const timeoutId = setTimeout(() => {
         connect(apiUrl, authToken)
-      }, 500) // 500ms debounce
+      }, 500)
       
       return () => clearTimeout(timeoutId)
     }

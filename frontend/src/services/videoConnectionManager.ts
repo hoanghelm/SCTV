@@ -1,4 +1,3 @@
-// Advanced video connection state manager
 class VideoConnectionManager {
   private connections = new Map<string, {
     status: 'idle' | 'connecting' | 'connected' | 'error',
@@ -20,17 +19,15 @@ class VideoConnectionManager {
     const connection = this.connections.get(cameraId)
     
     if (!connection) {
-      return true // First time connection
+      return true
     }
 
-    // Prevent rapid retry attempts but allow reasonable reconnects
     const timeSinceLastAttempt = Date.now() - connection.lastAttempt
     if (timeSinceLastAttempt < 1000 && connection.status === 'connecting') {
       console.log(`Connection attempt blocked for ${cameraId} - still connecting`)
       return false
     }
 
-    // Don't allow new connections if already connecting/connected
     if (connection.status === 'connecting' || connection.status === 'connected') {
       console.log(`Connection blocked for ${cameraId} - already ${connection.status}`)
       return false

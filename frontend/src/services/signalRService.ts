@@ -17,23 +17,19 @@ export class SignalRService {
   }
 
   async connect(): Promise<signalR.HubConnection> {
-    // If already connected, return existing connection
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       return this.connection
     }
 
-    // If already connecting, wait for the existing connection attempt
     if (this.isConnecting && this.connectionPromise) {
       console.log('Connection already in progress, waiting for existing attempt...')
       try {
         return await this.connectionPromise
       } catch (error) {
-        // If the existing attempt failed, we'll try again below
         console.warn('Previous connection attempt failed, will retry')
       }
     }
 
-    // Set connecting flag and create connection promise
     this.isConnecting = true
     this.connectionPromise = this.doConnect()
 
@@ -47,7 +43,6 @@ export class SignalRService {
   }
 
   private async doConnect(): Promise<signalR.HubConnection> {
-    // Clean up existing connection if it exists but not connected
     if (this.connection && this.connection.state !== signalR.HubConnectionState.Disconnected) {
       try {
         await this.connection.stop()
@@ -62,10 +57,9 @@ export class SignalRService {
     const connectionOptions: signalR.IHttpConnectionOptions = {
       skipNegotiation: false,
       transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents,
-      withCredentials: false // Disable credentials to avoid CORS wildcard issue
+      withCredentials: false
     }
 
-    // Only add access token if we have one
     if (this.authToken && this.authToken.trim()) {
       connectionOptions.accessTokenFactory = () => this.authToken.replace('Bearer ', '')
     }
@@ -73,7 +67,7 @@ export class SignalRService {
     const connectionBuilder = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, connectionOptions)
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Warning) // Reduce logging
+      .configureLogging(signalR.LogLevel.Warning)
 
     this.connection = connectionBuilder.build()
 
