@@ -11,7 +11,7 @@ namespace Streaming.Data.Configurations
 			builder.HasKey(s => s.Id);
 
 			builder.Property(s => s.ViewerId)
-				.IsRequired()
+				.IsRequired(false)
 				.HasMaxLength(450);
 
 			builder.Property(s => s.ConnectionId)
