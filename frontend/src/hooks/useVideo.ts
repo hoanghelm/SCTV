@@ -3,6 +3,7 @@ import { Detection } from '../types'
 import { signalRService } from '../services/signalRService'
 import { connectionManager } from '../services/connectionManager'
 import { videoConnectionManager } from '../services/videoConnectionManager'
+import { detectionService, DetectionResult } from '../services/detectionService'
 
 interface VideoStats {
   fps: number
@@ -15,6 +16,7 @@ interface UseVideoReturn {
   status: 'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting'
   stats: VideoStats | null
   detections: Detection[]
+  realtimeDetections: DetectionResult[]
   isLoading: boolean
   error: string | null
   connect: () => Promise<void>
@@ -35,11 +37,117 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected')
   const [stats, setStats] = useState<VideoStats | null>(null)
   const [detections, setDetections] = useState<Detection[]>([])
+  const [realtimeDetections, setRealtimeDetections] = useState<DetectionResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [lastRetryTime, setLastRetryTime] = useState(0)
+  const [detectionDisplayTimeout, setDetectionDisplayTimeout] = useState<NodeJS.Timeout | null>(null)
   const maxRetries = 3
+
+  // Initialize detection model on mount
+  useEffect(() => {
+    detectionService.initialize().then(success => {
+      console.log('Detection model initialization:', success ? 'success' : 'failed')
+    })
+
+    return () => {
+      detectionService.cleanup()
+    }
+  }, [])
+
+  const startDetection = useCallback((video: HTMLVideoElement) => {
+    if (!detectionService.isModelReady()) {
+      console.log('Detection model not ready, skipping detection start')
+      return
+    }
+
+    console.log('Starting detection for video', { 
+      width: video.videoWidth, 
+      height: video.videoHeight 
+    })
+
+    detectionService.startDetectionForVideo(
+      cameraId,
+      video,
+      // Handle detection overlay updates with smooth transitions
+      (detections: DetectionResult[]) => {
+        // Clear any existing timeout
+        if (detectionDisplayTimeout) {
+          clearTimeout(detectionDisplayTimeout)
+        }
+
+        // If we have existing detections, apply fade-out effect first
+        if (realtimeDetections.length > 0) {
+          // Mark existing boxes as fading
+          setRealtimeDetections(prev => prev.map(det => ({ ...det, fading: true } as any)))
+          
+          // Wait for fade-out, then show new detections
+          setTimeout(() => {
+            setRealtimeDetections(detections)
+            
+            // Auto-hide detections after 4 seconds (same as index.html)
+            const timeout = setTimeout(() => {
+              // Fade out before removing
+              setRealtimeDetections(prev => prev.map(det => ({ ...det, fading: true } as any)))
+              setTimeout(() => {
+                setRealtimeDetections([])
+              }, 150) // Match CSS transition time
+            }, 4000)
+            
+            setDetectionDisplayTimeout(timeout)
+          }, 100) // Small delay for smooth transition
+        } else {
+          // No existing detections, show immediately
+          setRealtimeDetections(detections)
+          
+          // Auto-hide detections after 4 seconds
+          const timeout = setTimeout(() => {
+            // Fade out before removing
+            setRealtimeDetections(prev => prev.map(det => ({ ...det, fading: true } as any)))
+            setTimeout(() => {
+              setRealtimeDetections([])
+            }, 150) // Match CSS transition time
+          }, 4000)
+          
+          setDetectionDisplayTimeout(timeout)
+        }
+      },
+      // Handle realtime detection events for notifications
+      (detections: DetectionResult[]) => {
+        console.log('Realtime detection event', detections)
+        
+        // Send notification (same as index.html logic)
+        const event = {
+          cameraId: cameraId,
+          cameraName: `Camera ${cameraId}`,
+          detections: detections.map(det => ({
+            confidence: det.score,
+            bbox: det.bbox,
+            class: det.class
+          })),
+          timestamp: new Date().toISOString(),
+          source: 'realtime-browser',
+          frameImageBase64: null // Could add frame capture here if needed
+        }
+        
+        // Dispatch to notification system
+        window.dispatchEvent(new CustomEvent('personDetected', { detail: event }))
+        console.log('Person detection event dispatched:', event)
+      }
+    )
+  }, [cameraId])
+
+  const stopDetection = useCallback(() => {
+    detectionService.stopDetectionForVideo(cameraId)
+    setRealtimeDetections([])
+    
+    // Clear any pending display timeout
+    if (detectionDisplayTimeout) {
+      clearTimeout(detectionDisplayTimeout)
+      setDetectionDisplayTimeout(null)
+    }
+  }, [cameraId, detectionDisplayTimeout])
 
   const setupWebRTC = useCallback(async (offer: RTCSessionDescriptionInit) => {
     try {
@@ -131,6 +239,13 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
                 console.log('Video started playing successfully')
                 setStatus('connected')
                 setIsLoading(false)
+                
+                // Start detection after video is playing and has dimensions
+                setTimeout(() => {
+                  if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    startDetection(video)
+                  }
+                }, 2000) // Same delay as index.html
               }).catch((err) => {
                 console.log('Failed to play video', err)
                 if (err.name === 'NotAllowedError') {
@@ -410,6 +525,9 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
 
   const disconnect = useCallback(async () => {
     try {
+      // Stop detection first
+      stopDetection()
+      
       // Close peer connection first
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close()
@@ -436,9 +554,16 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
       setStatus('disconnected')
       setStats(null)
       setDetections([])
+      setRealtimeDetections([])
       setError(null)
       setIsLoading(false)
       setRetryCount(0)
+      
+      // Clear detection timeout
+      if (detectionDisplayTimeout) {
+        clearTimeout(detectionDisplayTimeout)
+        setDetectionDisplayTimeout(null)
+      }
       
       // Use centralized managers
       videoConnectionManager.disconnect(cameraId)
@@ -446,7 +571,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     } catch (error) {
       console.error('Disconnect error:', error)
     }
-  }, [cameraId])
+  }, [cameraId, stopDetection])
 
   useEffect(() => {
     const handlePersonDetected = (event: any) => {
@@ -504,6 +629,7 @@ export const useVideo = (cameraId: string): UseVideoReturn => {
     status,
     stats,
     detections,
+    realtimeDetections,
     isLoading,
     error,
     connect,

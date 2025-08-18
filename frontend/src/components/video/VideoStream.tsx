@@ -130,6 +130,7 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
     status,
     stats,
     detections,
+    realtimeDetections,
     isLoading,
     error,
     connect,
@@ -166,6 +167,51 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
       disconnect()
     }
   }, [])
+
+  // Calculate detection box positions based on video dimensions (same logic as index.html)
+  const calculateDetectionBoxStyle = (detection: any) => {
+    const video = videoRef.current
+    if (!video || video.videoWidth === 0) return {}
+
+    const videoDisplayWidth = video.offsetWidth
+    const videoDisplayHeight = video.offsetHeight
+    const videoActualWidth = video.videoWidth
+    const videoActualHeight = video.videoHeight
+
+    const videoAspectRatio = videoActualWidth / videoActualHeight
+    const displayAspectRatio = videoDisplayWidth / videoDisplayHeight
+
+    let scaleX: number, scaleY: number, offsetX = 0, offsetY = 0
+
+    if (videoAspectRatio > displayAspectRatio) {
+      // Video is wider than display area
+      scaleX = videoDisplayWidth / videoActualWidth
+      scaleY = scaleX
+      offsetY = (videoDisplayHeight - (videoActualHeight * scaleY)) / 2
+    } else {
+      // Video is taller than display area
+      scaleY = videoDisplayHeight / videoActualHeight
+      scaleX = scaleY
+      offsetX = (videoDisplayWidth - (videoActualWidth * scaleX)) / 2
+    }
+
+    const [x, y, width, height] = detection.bbox
+
+    return {
+      position: 'absolute' as const,
+      left: (x * scaleX + offsetX) + 'px',
+      top: (y * scaleY + offsetY) + 'px',
+      width: (width * scaleX) + 'px',
+      height: (height * scaleY) + 'px',
+      border: '3px solid #00ff00',
+      backgroundColor: 'rgba(0, 255, 0, 0.15)',
+      pointerEvents: 'none' as const,
+      zIndex: 20,
+      boxShadow: '0 0 10px rgba(0, 255, 0, 0.5)',
+      transition: 'opacity 0.15s ease-in-out',
+      opacity: (detection as any).fading ? 0 : 1
+    }
+  }
 
   const renderVideoContent = () => {
     return (
@@ -218,19 +264,29 @@ export const VideoStream: React.FC<VideoStreamProps> = ({ camera, showStats = tr
         )}
 
         <DetectionOverlay id={`detections-${camera.id}`}>
-          {detections.map((detection, index) => (
+          {realtimeDetections.map((detection, index) => (
             <div
               key={index}
               className="detection-box"
-              style={{
-                left: `${detection.bbox[0]}px`,
-                top: `${detection.bbox[1]}px`,
-                width: `${detection.bbox[2] - detection.bbox[0]}px`,
-                height: `${detection.bbox[3] - detection.bbox[1]}px`
-              }}
+              style={calculateDetectionBoxStyle(detection)}
             >
-              <div className="detection-label">
-                {detection.label} {Math.round(detection.confidence * 100)}%
+              <div 
+                className="detection-label"
+                style={{
+                  position: 'absolute',
+                  top: '-30px',
+                  left: '0',
+                  backgroundColor: '#00ff00',
+                  color: 'black',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  borderRadius: '4px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}
+              >
+                Person {Math.round(detection.score * 100)}%
               </div>
             </div>
           ))}

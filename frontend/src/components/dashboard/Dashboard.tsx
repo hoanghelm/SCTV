@@ -7,7 +7,7 @@ import { loadCameras, createTestStream } from '../../store/slices/camerasSlice'
 import { VideoGrid } from './VideoGrid'
 import { DashboardHeader } from './DashboardHeader'
 import { ConnectionStatus } from './ConnectionStatus'
-import { NotificationPanel } from './NotificationPanel'
+import { NotificationPanel } from '../common/NotificationPanel'
 import { ConnectionTest } from '../common/ConnectionTest'
 import { useSignalR } from '../../hooks/useSignalR'
 
@@ -113,11 +113,9 @@ export const Dashboard: React.FC = () => {
             <VideoGrid cameras={activeCameras} signalRConnected={isConnected} />
           </VideoSection>
           
-          {showNotifications && (
-            <SidePanel>
-              <NotificationPanel />
-            </SidePanel>
-          )}
+          <SidePanel>
+            <NotificationPanel />
+          </SidePanel>
         </MainGrid>
       </DashboardContent>
     </DashboardContainer>
