@@ -17,8 +17,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Auth\Auth.API\Auth.API.csproj" />
+    <ProjectReference Include="..\..\src\Consumers\PersonDetections.Consumers\PersonDetections.Consumers.csproj" />
     <ProjectReference Include="..\..\src\Gateway\ApiGateway\ApiGateway.csproj" />
     <ProjectReference Include="..\..\src\Migrations\Auth.Migrations\Auth.Migrations.csproj" />
+    <ProjectReference Include="..\..\src\Migrations\Consumers.Migrations\Consumers.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Migrations\Streaming.Migrations\Streaming.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Streaming\Streaming.API\Streaming.API.csproj" />
   </ItemGroup>

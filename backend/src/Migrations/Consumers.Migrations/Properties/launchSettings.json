@@ -1,0 +1,14 @@
+﻿{
+    "$schema": "https://json.schemastore.org/launchsettings.json",
+    "profiles": {
+        "Streaming.MigrationService": {
+            "commandName": "Project",
+            "dotnetRunMessages": true,
+            "environmentVariables": {
+                "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            }
+        }
+    }
+}
