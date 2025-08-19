@@ -9,7 +9,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import aiohttp
-# from aiokafka import AIOKafkaProducer  # Commented out as requested
+from aiokafka import AIOKafkaProducer
 import os
 from collections import deque
 import time
@@ -38,29 +38,29 @@ class PersonDetector:
         self.confidence_threshold = confidence_threshold
         self.nms_threshold = nms_threshold
         self.process_every_n_frames = process_every_n_frames
-        # self.kafka_producer: Optional[AIOKafkaProducer] = None  # Commented out
+        self.kafka_producer: Optional[AIOKafkaProducer] = None
         self.api_base_url = os.getenv('API_BASE_URL', 'http://localhost:5004')
         self.frame_buffer = {}  # Store recent frames for each camera
         self.detection_cooldown = {}  # Prevent spam detections
         self.detection_history = {}  # Track detection consistency
         
-    # async def initialize_kafka(self, bootstrap_servers: str = None):
-    #     """Initialize Kafka producer for sending detection events"""
-    #     if bootstrap_servers is None:
-    #         bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-    #         
-    #     self.kafka_producer = AIOKafkaProducer(
-    #         bootstrap_servers=bootstrap_servers,
-    #         value_serializer=lambda m: json.dumps(m).encode('utf-8'),
-    #         compression_type='gzip'
-    #     )
-    #     await self.kafka_producer.start()
-    #     logger.info(f"Kafka producer initialized: {bootstrap_servers}")
+    async def initialize_kafka(self, bootstrap_servers: str = None):
+        """Initialize Kafka producer for sending detection events"""
+        if bootstrap_servers is None:
+            bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+            
+        self.kafka_producer = AIOKafkaProducer(
+            bootstrap_servers=bootstrap_servers,
+            value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+            compression_type='gzip'
+        )
+        await self.kafka_producer.start()
+        logger.info(f"Kafka producer initialized: {bootstrap_servers}")
     
     async def close(self):
         """Cleanup resources"""
-        # if self.kafka_producer:
-        #     await self.kafka_producer.stop()
+        if self.kafka_producer:
+            await self.kafka_producer.stop()
         logger.info("PersonDetector closed")
     
     def detect_persons(self, frame: np.ndarray) -> List[Dict]:
@@ -198,14 +198,13 @@ class PersonDetector:
                 frame_base64 = base64.b64encode(buffer).decode('utf-8')
                 event['frame'] = frame_base64
             
-            # Log the detection event instead of sending to Kafka
             logger.info(f"DETECTION EVENT - Camera: {camera_id} ({camera_name}), Persons: {len(detections)}")
             for i, detection in enumerate(detections):
                 logger.info(f"  Person {i+1}: Confidence={detection['confidence']:.2f}, BBox={detection['bbox']}")
             
-            # TODO: Uncomment below to send to Kafka when ready
-            # await self.kafka_producer.send('person-detection', event)
-            # logger.info(f"Sent detection event for camera {camera_id}: {len(detections)} persons")
+            if self.kafka_producer:
+                await self.kafka_producer.send('person-detection', event)
+                logger.info(f"Sent detection event for camera {camera_id}: {len(detections)} persons")
             
         except Exception as e:
             logger.error(f"Error processing detection event: {e}")
@@ -299,8 +298,7 @@ class StreamProcessor:
         logger.info("Starting stream processor...")
         self.running = True
         
-        # Initialize Kafka (commented out)
-        # await self.detector.initialize_kafka()
+        await self.detector.initialize_kafka()
         
         # Start monitoring cameras
         monitor_task = asyncio.create_task(self.monitor_cameras())

@@ -9,6 +9,9 @@ using PersonDetections.Data.Context;
 using PersonDetections.Data.EntityFramework;
 using PersonDetections.Domain.Contracts;
 using PersonDetections.Infrastructure.Mediators;
+using PersonDetections.Service.Commands;
+using PersonDetections.Service.Handlers;
+using PersonDetections.Service.Services;
 using System.Reflection;
 
 namespace PersonDetections.Infrastructure.Configures
@@ -17,7 +20,8 @@ namespace PersonDetections.Infrastructure.Configures
 	{
 		public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
 		{
-			// Add MediatR
+			services.AddService<ProcessPersonDetectionCommand, bool, ProcessPersonDetectionHandler>();
+			services.AddHostedService<KafkaConsumerService>();
 
 			return services;
 		}

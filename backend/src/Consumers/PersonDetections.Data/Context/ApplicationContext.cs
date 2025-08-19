@@ -10,8 +10,7 @@ namespace PersonDetections.Data.Context
 	public abstract class ApplicationContext : DbContext, IApplicationDbContext
 	{
 		public ApplicationContext(DbContextOptions options) : base(options) { }
-
-		public DbSet<Test> Tests { get; set; }
+		public DbSet<PersonDetection> PersonDetections { get; set; }
 
 		protected override void OnModelCreating(ModelBuilder builder)
 		{

@@ -21,5 +21,12 @@ namespace PersonDetections.Infrastructure.Mediators
 		{
 			services.AddScoped<IRequestHandler<TRequest, ApiResult>, TImplementation>();
 		}
+
+		public static void AddService<TRequest, TResponse, TImplementation>(this IServiceCollection services)
+			where TRequest : class, IRequest<TResponse>
+			where TImplementation : class, IRequestHandler<TRequest, TResponse>
+		{
+			services.AddScoped<IRequestHandler<TRequest, TResponse>, TImplementation>();
+		}
 	}
 }

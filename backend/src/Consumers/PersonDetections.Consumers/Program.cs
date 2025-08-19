@@ -1,4 +1,5 @@
 ﻿using SCTV.AppHost.Extensions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PersonDetections.Infrastructure.Mediators;
@@ -7,6 +8,7 @@ using PersonDetections.Infrastructure.Configures;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddRouting();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddServiceDefaults(builder.Configuration);
 builder.Services.AddMediator();
