@@ -1,26 +1,31 @@
-import React, { useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import styled from 'styled-components'
-import { theme } from '../../styles/theme'
-import { RootState, AppDispatch } from '../../store'
-import { setLayout, setGridColumns, toggleStats, toggleNotifications } from '../../store/slices/dashboardSlice'
-import { Button } from '../common/Button'
-import { Card } from '../common/Card'
-import { Input, Label, FormGroup, FormRow, Select } from '../common/Input'
-import { AddCameraModal } from '../modals/AddCameraModal'
+import React, { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import styled from "styled-components";
+import { theme } from "../../styles/theme";
+import { RootState, AppDispatch } from "../../store";
+import {
+  setLayout,
+  setGridColumns,
+  toggleStats,
+  toggleNotifications,
+} from "../../store/slices/dashboardSlice";
+import { Button } from "../common/Button";
+import { Card } from "../common/Card";
+import { Input, Label, FormGroup, FormRow, Select } from "../common/Input";
+import { AddCameraModal } from "../modals/AddCameraModal";
 
 interface DashboardHeaderProps {
-  apiUrl: string
-  authToken: string
-  onApiUrlChange: (url: string) => void
-  onAuthTokenChange: (token: string) => void
-  onCreateTestStream: () => void
-  onRefreshCameras: () => void
+  apiUrl: string;
+  authToken: string;
+  onApiUrlChange: (url: string) => void;
+  onAuthTokenChange: (token: string) => void;
+  onCreateTestStream: () => void;
+  onRefreshCameras: () => void;
 }
 
 const HeaderContainer = styled.div`
   margin-bottom: ${theme.sizes.spacing.lg};
-`
+`;
 
 const Title = styled.h1`
   text-align: center;
@@ -28,41 +33,41 @@ const Title = styled.h1`
   color: ${theme.colors.primary};
   font-size: 32px;
   font-weight: 600;
-`
+`;
 
 const ControlsGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr auto;
   gap: ${theme.sizes.spacing.lg};
   align-items: end;
-  
+
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
   }
-`
+`;
 
 const ConfigSection = styled(Card)`
   padding: ${theme.sizes.spacing.lg};
-`
+`;
 
 const ActionSection = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${theme.sizes.spacing.md};
   min-width: 300px;
-`
+`;
 
 const PrimaryButtonGroup = styled.div`
   display: flex;
   gap: ${theme.sizes.spacing.md};
   flex-wrap: wrap;
-`
+`;
 
 const SecondaryButtonGroup = styled.div`
   display: flex;
   gap: ${theme.sizes.spacing.sm};
   flex-wrap: wrap;
-`
+`;
 
 const ViewControls = styled.div`
   display: flex;
@@ -72,14 +77,14 @@ const ViewControls = styled.div`
   margin-top: ${theme.sizes.spacing.md};
   padding-top: ${theme.sizes.spacing.md};
   border-top: 1px solid ${theme.colors.border};
-`
+`;
 
 const StatsText = styled.div`
   font-size: 12px;
   color: ${theme.colors.textSecondary};
   text-align: center;
   margin-top: ${theme.sizes.spacing.sm};
-`
+`;
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   apiUrl,
@@ -87,25 +92,27 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onApiUrlChange,
   onAuthTokenChange,
   onCreateTestStream,
-  onRefreshCameras
+  onRefreshCameras,
 }) => {
-  const dispatch = useDispatch<AppDispatch>()
-  const { layout, gridColumns, showStats, showNotifications } = useSelector((state: RootState) => state.dashboard)
-  const { cameras, loading } = useSelector((state: RootState) => state.cameras)
-  const [showAddCameraModal, setShowAddCameraModal] = useState(false)
+  const dispatch = useDispatch<AppDispatch>();
+  const { layout, gridColumns, showStats, showNotifications } = useSelector(
+    (state: RootState) => state.dashboard,
+  );
+  const { cameras, loading } = useSelector((state: RootState) => state.cameras);
+  const [showAddCameraModal, setShowAddCameraModal] = useState(false);
 
-  const handleLayoutChange = (newLayout: 'grid' | 'list') => {
-    dispatch(setLayout(newLayout))
-  }
+  const handleLayoutChange = (newLayout: "grid" | "list") => {
+    dispatch(setLayout(newLayout));
+  };
 
   const handleGridColumnsChange = (columns: number) => {
-    dispatch(setGridColumns(columns))
-  }
+    dispatch(setGridColumns(columns));
+  };
 
   return (
     <HeaderContainer>
       <Title>🎥 CCTV Stream Dashboard</Title>
-      
+
       <ControlsGrid>
         <ConfigSection>
           <FormRow>
@@ -119,7 +126,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 $fullWidth
               />
             </FormGroup>
-            
+
             <FormGroup>
               <Label>Auth Token</Label>
               <Input
@@ -131,23 +138,27 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               />
             </FormGroup>
           </FormRow>
-          
+
           <ViewControls>
             <Label>Layout:</Label>
             <Select
               value={layout}
-              onChange={(e) => handleLayoutChange(e.target.value as 'grid' | 'list')}
+              onChange={(e) =>
+                handleLayoutChange(e.target.value as "grid" | "list")
+              }
             >
               <option value="grid">Grid</option>
               <option value="list">List</option>
             </Select>
-            
-            {layout === 'grid' && (
+
+            {layout === "grid" && (
               <>
                 <Label>Columns:</Label>
                 <Select
                   value={gridColumns}
-                  onChange={(e) => handleGridColumnsChange(parseInt(e.target.value))}
+                  onChange={(e) =>
+                    handleGridColumnsChange(parseInt(e.target.value))
+                  }
                 >
                   <option value={1}>1</option>
                   <option value={2}>2</option>
@@ -156,16 +167,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </Select>
               </>
             )}
-            
-            <Button 
+
+            <Button
               $size="small"
               $variant={showStats ? "primary" : "secondary"}
               onClick={() => dispatch(toggleStats())}
             >
               Stats
             </Button>
-            
-            <Button 
+
+            <Button
               $size="small"
               $variant={showNotifications ? "primary" : "secondary"}
               onClick={() => dispatch(toggleNotifications())}
@@ -174,45 +185,46 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </Button>
           </ViewControls>
         </ConfigSection>
-        
+
         <ActionSection>
           <PrimaryButtonGroup>
-            <Button 
-              $variant="success" 
+            <Button
+              $variant="success"
               onClick={() => setShowAddCameraModal(true)}
             >
               ➕ Add Camera
             </Button>
-            
-            <Button 
-              $variant="primary" 
+
+            <Button
+              $variant="primary"
               onClick={onRefreshCameras}
               disabled={loading}
             >
-              {loading ? '🔄 Loading...' : '🔄 Refresh'}
+              {loading ? "🔄 Loading..." : "🔄 Refresh"}
             </Button>
           </PrimaryButtonGroup>
-          
+
           <SecondaryButtonGroup>
-            <Button 
-              $variant="secondary" 
+            <Button
+              $variant="secondary"
               $size="small"
               onClick={onCreateTestStream}
             >
               🎬 Test Stream
             </Button>
           </SecondaryButtonGroup>
-          
+
           <StatsText>
-            📹 {cameras.length} camera(s) • 🔴 {cameras.filter(c => c.status === 'Active').length} active
+            📹 {cameras.length} camera(s) • 🔴{" "}
+            {cameras.filter((c) => c.status === "Active").length} active
           </StatsText>
         </ActionSection>
       </ControlsGrid>
 
-      <AddCameraModal 
-        isOpen={showAddCameraModal} 
-        onClose={() => setShowAddCameraModal(false)} 
+      <AddCameraModal
+        isOpen={showAddCameraModal}
+        onClose={() => setShowAddCameraModal(false)}
       />
     </HeaderContainer>
-  )
-}
+  );
+};

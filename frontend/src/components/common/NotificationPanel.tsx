@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react'
-import styled from 'styled-components'
-import { theme } from '../../styles/theme'
+import React, { useState, useEffect } from "react";
+import styled from "styled-components";
+import { theme } from "../../styles/theme";
 
 interface DetectionNotification {
-  id: string
-  cameraId: string
-  cameraName: string
+  id: string;
+  cameraId: string;
+  cameraName: string;
   detections: Array<{
-    confidence: number
-    bbox: [number, number, number, number]
-    class: string
-  }>
-  timestamp: string
-  source: string
-  frameImageBase64?: string | null
+    confidence: number;
+    bbox: [number, number, number, number];
+    class: string;
+  }>;
+  timestamp: string;
+  source: string;
+  frameImageBase64?: string | null;
 }
 
 const NotificationContainer = styled.div`
@@ -24,14 +24,14 @@ const NotificationContainer = styled.div`
   max-height: 400px;
   overflow-y: auto;
   margin-bottom: ${theme.sizes.spacing.lg};
-`
+`;
 
 const NotificationTitle = styled.h3`
   color: ${theme.colors.text};
   margin: 0 0 ${theme.sizes.spacing.md} 0;
   font-size: 18px;
   font-weight: 600;
-`
+`;
 
 const NotificationItem = styled.div`
   background-color: ${theme.colors.surfaceAlt};
@@ -47,28 +47,28 @@ const NotificationItem = styled.div`
   &:hover {
     background-color: ${theme.colors.background};
   }
-`
+`;
 
 const NotificationContent = styled.div`
   flex: 1;
-`
+`;
 
 const NotificationHeader = styled.div`
   font-weight: 600;
   color: ${theme.colors.text};
   margin-bottom: ${theme.sizes.spacing.xs};
-`
+`;
 
 const NotificationTime = styled.div`
   font-size: 11px;
   color: ${theme.colors.textSecondary};
   margin-bottom: ${theme.sizes.spacing.xs};
-`
+`;
 
 const NotificationDetails = styled.div`
   font-size: 12px;
   color: ${theme.colors.textSecondary};
-`
+`;
 
 const DetectionImage = styled.img`
   width: 60px;
@@ -81,7 +81,7 @@ const DetectionImage = styled.img`
   &:hover {
     transform: scale(1.1);
   }
-`
+`;
 
 const ClearButton = styled.button`
   background-color: ${theme.colors.primary};
@@ -97,56 +97,73 @@ const ClearButton = styled.button`
   &:hover {
     background-color: ${theme.colors.primaryHover};
   }
-`
+`;
 
 export const NotificationPanel: React.FC = () => {
-  const [notifications, setNotifications] = useState<DetectionNotification[]>([])
+  const [notifications, setNotifications] = useState<DetectionNotification[]>(
+    [],
+  );
 
   useEffect(() => {
     const handlePersonDetected = (event: CustomEvent) => {
-      const detection = event.detail as DetectionNotification
+      const detection = event.detail as DetectionNotification;
       const newNotification: DetectionNotification = {
         ...detection,
         id: `${detection.cameraId}-${Date.now()}`,
-        cameraName: detection.cameraName || `Camera ${detection.cameraId}`
-      }
+        cameraName: detection.cameraName || `Camera ${detection.cameraId}`,
+      };
 
-      setNotifications(prev => [newNotification, ...prev.slice(0, 49)])
-    }
+      setNotifications((prev) => [newNotification, ...prev.slice(0, 49)]);
+    };
 
-    window.addEventListener('personDetected', handlePersonDetected as EventListener)
+    window.addEventListener(
+      "personDetected",
+      handlePersonDetected as EventListener,
+    );
 
     return () => {
-      window.removeEventListener('personDetected', handlePersonDetected as EventListener)
-    }
-  }, [])
+      window.removeEventListener(
+        "personDetected",
+        handlePersonDetected as EventListener,
+      );
+    };
+  }, []);
 
   const clearNotifications = () => {
-    setNotifications([])
-  }
+    setNotifications([]);
+  };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString()
-  }
+    return new Date(timestamp).toLocaleTimeString();
+  };
 
   if (notifications.length === 0) {
     return (
       <NotificationContainer>
         <NotificationTitle>Notifications</NotificationTitle>
-        <NotificationDetails style={{ textAlign: 'center', padding: '20px' }}>
+        <NotificationDetails style={{ textAlign: "center", padding: "20px" }}>
           No detections yet
         </NotificationDetails>
       </NotificationContainer>
-    )
+    );
   }
 
   return (
     <NotificationContainer>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <NotificationTitle>Notifications ({notifications.length})</NotificationTitle>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "16px",
+        }}
+      >
+        <NotificationTitle>
+          Notifications ({notifications.length})
+        </NotificationTitle>
         <ClearButton onClick={clearNotifications}>Clear All</ClearButton>
       </div>
-      
+
       {notifications.map((notification) => (
         <NotificationItem key={notification.id}>
           <NotificationContent>
@@ -159,25 +176,34 @@ export const NotificationPanel: React.FC = () => {
             <NotificationDetails>
               {notification.detections.length} person(s) detected
               {notification.detections.length > 0 && (
-                <span> (Avg: {Math.round(
-                  notification.detections.reduce((sum, det) => sum + det.confidence, 0) / 
-                  notification.detections.length * 100
-                )}%)</span>
+                <span>
+                  {" "}
+                  (Avg:{" "}
+                  {Math.round(
+                    (notification.detections.reduce(
+                      (sum, det) => sum + det.confidence,
+                      0,
+                    ) /
+                      notification.detections.length) *
+                      100,
+                  )}
+                  %)
+                </span>
               )}
             </NotificationDetails>
           </NotificationContent>
-          
+
           {notification.frameImageBase64 && (
             <DetectionImage
               src={`data:image/jpeg;base64,${notification.frameImageBase64}`}
               alt="Detection frame"
               onClick={() => {
-                console.log('Show detection image')
+                console.log("Show detection image");
               }}
             />
           )}
         </NotificationItem>
       ))}
     </NotificationContainer>
-  )
-}
+  );
+};

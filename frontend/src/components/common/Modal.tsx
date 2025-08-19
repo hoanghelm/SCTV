@@ -1,20 +1,20 @@
-import React, { useEffect } from 'react'
-import styled, { keyframes } from 'styled-components'
-import { theme } from '../../styles/theme'
+import React, { useEffect } from "react";
+import styled, { keyframes } from "styled-components";
+import { theme } from "../../styles/theme";
 
 interface ModalProps {
-  isOpen: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
-  width?: string
-  height?: string
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  width?: string;
+  height?: string;
 }
 
 const fadeIn = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
-`
+`;
 
 const slideIn = keyframes`
   from { 
@@ -25,7 +25,7 @@ const slideIn = keyframes`
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
-`
+`;
 
 const ModalOverlay = styled.div<{ $isOpen: boolean }>`
   position: fixed;
@@ -34,27 +34,27 @@ const ModalOverlay = styled.div<{ $isOpen: boolean }>`
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.8);
-  display: ${props => props.$isOpen ? 'flex' : 'none'};
+  display: ${(props) => (props.$isOpen ? "flex" : "none")};
   align-items: center;
   justify-content: center;
   z-index: 1000;
   animation: ${fadeIn} 0.2s ease-out;
-`
+`;
 
 const ModalContent = styled.div<{ $width?: string; $height?: string }>`
   background-color: ${theme.colors.surface};
   border-radius: ${theme.sizes.borderRadiusLarge};
   box-shadow: ${theme.shadows.large};
   border: 1px solid ${theme.colors.border};
-  width: ${props => props.$width || '500px'};
-  height: ${props => props.$height || 'auto'};
+  width: ${(props) => props.$width || "500px"};
+  height: ${(props) => props.$height || "auto"};
   max-width: 90vw;
   max-height: 90vh;
   position: relative;
   animation: ${slideIn} 0.2s ease-out;
   display: flex;
   flex-direction: column;
-`
+`;
 
 const ModalHeader = styled.div`
   display: flex;
@@ -62,20 +62,20 @@ const ModalHeader = styled.div`
   align-items: center;
   padding: ${theme.sizes.spacing.lg};
   border-bottom: 1px solid ${theme.colors.border};
-`
+`;
 
 const ModalTitle = styled.h2`
   margin: 0;
   color: ${theme.colors.text};
   font-size: 20px;
   font-weight: 600;
-`
+`;
 
 const ModalBody = styled.div`
   padding: ${theme.sizes.spacing.lg};
   flex: 1;
   overflow-y: auto;
-`
+`;
 
 const CloseButton = styled.button`
   background: none;
@@ -86,44 +86,44 @@ const CloseButton = styled.button`
   padding: ${theme.sizes.spacing.xs};
   border-radius: ${theme.sizes.borderRadius};
   transition: all ${theme.transitions.normal};
-  
+
   &:hover {
     background-color: ${theme.colors.surfaceAlt};
     color: ${theme.colors.text};
   }
-`
+`;
 
-export const Modal: React.FC<ModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
-  width, 
-  height 
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  width,
+  height,
 }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
+      if (e.key === "Escape") {
+        onClose();
       }
-    }
+    };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'hidden'
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen, onClose])
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onClose()
+      onClose();
     }
-  }
+  };
 
   return (
     <ModalOverlay $isOpen={isOpen} onClick={handleOverlayClick}>
@@ -132,10 +132,8 @@ export const Modal: React.FC<ModalProps> = ({
           <ModalTitle>{title}</ModalTitle>
           <CloseButton onClick={onClose}>×</CloseButton>
         </ModalHeader>
-        <ModalBody>
-          {children}
-        </ModalBody>
+        <ModalBody>{children}</ModalBody>
       </ModalContent>
     </ModalOverlay>
-  )
-}
+  );
+};

@@ -1,5 +1,5 @@
-import { createGlobalStyle } from 'styled-components'
-import { theme } from './theme'
+import { createGlobalStyle } from "styled-components";
+import { theme } from "./theme";
 
 export const GlobalStyles = createGlobalStyle`
   * {
@@ -88,4 +88,4 @@ export const GlobalStyles = createGlobalStyle`
     border-radius: 3px;
     white-space: nowrap;
   }
-`
+`;

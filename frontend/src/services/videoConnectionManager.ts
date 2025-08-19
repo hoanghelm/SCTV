@@ -1,94 +1,104 @@
 class VideoConnectionManager {
-  private connections = new Map<string, {
-    status: 'idle' | 'connecting' | 'connected' | 'error',
-    lastAttempt: number,
-    retryCount: number,
-    peerConnection?: RTCPeerConnection
-  }>()
+  private connections = new Map<
+    string,
+    {
+      status: "idle" | "connecting" | "connected" | "error";
+      lastAttempt: number;
+      retryCount: number;
+      peerConnection?: RTCPeerConnection;
+    }
+  >();
 
-  private static instance: VideoConnectionManager
-  
+  private static instance: VideoConnectionManager;
+
   static getInstance(): VideoConnectionManager {
     if (!VideoConnectionManager.instance) {
-      VideoConnectionManager.instance = new VideoConnectionManager()
+      VideoConnectionManager.instance = new VideoConnectionManager();
     }
-    return VideoConnectionManager.instance
+    return VideoConnectionManager.instance;
   }
 
   canConnect(cameraId: string): boolean {
-    const connection = this.connections.get(cameraId)
-    
+    const connection = this.connections.get(cameraId);
+
     if (!connection) {
-      return true
+      return true;
     }
 
-    const timeSinceLastAttempt = Date.now() - connection.lastAttempt
-    if (timeSinceLastAttempt < 1000 && connection.status === 'connecting') {
-      console.log(`Connection attempt blocked for ${cameraId} - still connecting`)
-      return false
+    const timeSinceLastAttempt = Date.now() - connection.lastAttempt;
+    if (timeSinceLastAttempt < 1000 && connection.status === "connecting") {
+      console.log(
+        `Connection attempt blocked for ${cameraId} - still connecting`,
+      );
+      return false;
     }
 
-    if (connection.status === 'connecting' || connection.status === 'connected') {
-      console.log(`Connection blocked for ${cameraId} - already ${connection.status}`)
-      return false
+    if (
+      connection.status === "connecting" ||
+      connection.status === "connected"
+    ) {
+      console.log(
+        `Connection blocked for ${cameraId} - already ${connection.status}`,
+      );
+      return false;
     }
 
-    return true
+    return true;
   }
 
   startConnection(cameraId: string): void {
     this.connections.set(cameraId, {
-      status: 'connecting',
+      status: "connecting",
       lastAttempt: Date.now(),
-      retryCount: (this.connections.get(cameraId)?.retryCount || 0) + 1
-    })
+      retryCount: (this.connections.get(cameraId)?.retryCount || 0) + 1,
+    });
   }
 
   setConnected(cameraId: string, peerConnection: RTCPeerConnection): void {
-    const connection = this.connections.get(cameraId)
+    const connection = this.connections.get(cameraId);
     if (connection) {
-      connection.status = 'connected'
-      connection.peerConnection = peerConnection
-      connection.retryCount = 0
+      connection.status = "connected";
+      connection.peerConnection = peerConnection;
+      connection.retryCount = 0;
     }
   }
 
   setError(cameraId: string): void {
-    const connection = this.connections.get(cameraId)
+    const connection = this.connections.get(cameraId);
     if (connection) {
-      connection.status = 'error'
-      connection.peerConnection = undefined
+      connection.status = "error";
+      connection.peerConnection = undefined;
     }
   }
 
   disconnect(cameraId: string): void {
-    const connection = this.connections.get(cameraId)
+    const connection = this.connections.get(cameraId);
     if (connection?.peerConnection) {
-      connection.peerConnection.close()
+      connection.peerConnection.close();
     }
-    
+
     this.connections.set(cameraId, {
-      status: 'idle',
+      status: "idle",
       lastAttempt: Date.now(),
-      retryCount: 0
-    })
+      retryCount: 0,
+    });
   }
 
   getStatus(cameraId: string): string {
-    return this.connections.get(cameraId)?.status || 'idle'
+    return this.connections.get(cameraId)?.status || "idle";
   }
 
   getRetryCount(cameraId: string): number {
-    return this.connections.get(cameraId)?.retryCount || 0
+    return this.connections.get(cameraId)?.retryCount || 0;
   }
 
   cleanup(cameraId: string): void {
-    const connection = this.connections.get(cameraId)
+    const connection = this.connections.get(cameraId);
     if (connection?.peerConnection) {
-      connection.peerConnection.close()
+      connection.peerConnection.close();
     }
-    this.connections.delete(cameraId)
+    this.connections.delete(cameraId);
   }
 }
 
-export const videoConnectionManager = VideoConnectionManager.getInstance()
+export const videoConnectionManager = VideoConnectionManager.getInstance();
