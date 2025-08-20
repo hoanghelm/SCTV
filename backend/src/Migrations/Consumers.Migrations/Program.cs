@@ -11,7 +11,6 @@ builder.Services.AddRouting();
 
 builder.Services.AddServiceDefaults(builder.Configuration);
 builder.Services.AddMediator();
-builder.Services.AddServices(builder.Configuration);
 builder.Services.AddUnitOfWork();
 
 

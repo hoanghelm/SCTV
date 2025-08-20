@@ -7,6 +7,7 @@
             "environmentVariables": {
                 "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+                "KAFKA_URL": "localhost:9092",
                 "ASPNETCORE_ENVIRONMENT": "Development"
             }
         }

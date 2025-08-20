@@ -1,14 +1,27 @@
+using System.Text.Json.Serialization;
+
 namespace PersonDetections.Service.Models;
 
 public class PersonDetectionMessage
 {
+    [JsonPropertyName("camera_id")]
     public Guid CameraId { get; set; }
+    
+    [JsonPropertyName("camera_name")]
     public string CameraName { get; set; }
+    
     public List<DetectionData> Detections { get; set; }
+    
+    [JsonPropertyName("detection_count")]
     public int DetectionCount { get; set; }
+    
     public DateTime Timestamp { get; set; }
+    
+    [JsonPropertyName("event_type")]
     public string EventType { get; set; }
-    public string? Frame { get; set; }
+    
+    [JsonPropertyName("frame_path")]
+    public string? FramePath { get; set; }
 }
 
 public class DetectionData

@@ -24,23 +24,18 @@ public class ProcessPersonDetectionHandler : IRequestHandler<ProcessPersonDetect
         try
         {
             var message = request.DetectionMessage;
-            
-            string frameStoragePath = null;
-            if (!string.IsNullOrEmpty(message.Frame))
-            {
-                frameStoragePath = await SaveFrameToFileSystem(message.Frame, message.CameraId, message.Timestamp);
-            }
 
             var detection = new PersonDetection
             {
                 Id = Guid.NewGuid(),
                 CameraId = message.CameraId,
-                CameraName = message.CameraName,
-                EventType = message.EventType,
-                EventTimestamp = message.Timestamp,
+                CameraName = string.IsNullOrEmpty(message.CameraName) ? $"Camera-{message.CameraId}" : message.CameraName,
+                EventType = string.IsNullOrEmpty(message.EventType) ? "person_detection" : message.EventType,
+                EventTimestamp = message.Timestamp.Kind == DateTimeKind.Unspecified ? 
+                    DateTime.SpecifyKind(message.Timestamp, DateTimeKind.Utc) : message.Timestamp,
                 DetectionCount = message.DetectionCount,
                 DetectionsData = JsonSerializer.Serialize(message.Detections),
-                FrameStoragePath = frameStoragePath,
+                FrameStoragePath = message.FramePath, // Use the file path directly from Python
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -60,27 +55,4 @@ public class ProcessPersonDetectionHandler : IRequestHandler<ProcessPersonDetect
         }
     }
 
-    private async Task<string> SaveFrameToFileSystem(string frameBase64, Guid cameraId, DateTime timestamp)
-    {
-        try
-        {
-            var frameData = Convert.FromBase64String(frameBase64);
-            
-            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            var storageDirectory = Path.Combine(baseDirectory, "storage", "detections", cameraId.ToString(), timestamp.ToString("yyyy-MM-dd"));
-            Directory.CreateDirectory(storageDirectory);
-            
-            var fileName = $"{timestamp:yyyy-MM-dd_HH-mm-ss-fff}.jpg";
-            var filePath = Path.Combine(storageDirectory, fileName);
-            
-            await File.WriteAllBytesAsync(filePath, frameData);
-            
-            return filePath;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error saving frame to file system");
-            return null;
-        }
-    }
 }

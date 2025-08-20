@@ -173,3 +173,10 @@ coverage.xml
 *.bak
 *.swp
 *.swo
+
+# Detection storage - ignore all detection frames and storage data
+storage/detections/
+**/storage/detections/
+backend/src/Detections/storage/
+src/Detections/storage/
+ai_detection.log

@@ -44,6 +44,10 @@ class PersonDetector:
         self.detection_cooldown = {}  # Prevent spam detections
         self.detection_history = {}  # Track detection consistency
         
+        # Frame storage configuration
+        self.storage_base_path = os.getenv('FRAME_STORAGE_PATH', 'storage/detections')
+        Path(self.storage_base_path).mkdir(parents=True, exist_ok=True)
+        
     async def initialize_kafka(self, bootstrap_servers: str = None):
         """Initialize Kafka producer for sending detection events"""
         if bootstrap_servers is None:
@@ -169,6 +173,35 @@ class PersonDetector:
         
         return annotated_frame
     
+    def save_frame_to_filesystem(
+        self, 
+        frame: np.ndarray, 
+        camera_id: str, 
+        timestamp: datetime
+    ) -> str:
+        """Save frame to filesystem and return the file path"""
+        try:
+            # Create directory structure: storage/detections/{camera_id}/{yyyy-mm-dd}/
+            date_str = timestamp.strftime("%Y-%m-%d")
+            storage_dir = Path(self.storage_base_path) / camera_id / date_str
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate filename with timestamp
+            filename = f"{timestamp.strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]}.jpg"  # Remove last 3 digits of microseconds
+            file_path = storage_dir / filename
+            
+            # Compress and save frame
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
+            cv2.imwrite(str(file_path), frame, encode_param)
+            
+            # Return relative path for consistency with C# consumer
+            relative_path = str(file_path.relative_to(Path(self.storage_base_path).parent))
+            return relative_path.replace('\\', '/')  # Ensure forward slashes for cross-platform compatibility
+            
+        except Exception as e:
+            logger.error(f"Error saving frame to filesystem: {e}")
+            return None
+    
     async def send_detection_event(
         self,
         camera_id: str,
@@ -177,14 +210,15 @@ class PersonDetector:
         frame: np.ndarray,
         send_frame: bool = True
     ):
-        """Log detection event (Kafka functionality commented out)"""
+        """Send detection event with frame saved to filesystem"""
         try:
+            timestamp = datetime.utcnow()
             event = {
                 'camera_id': camera_id,
                 'camera_name': camera_name,
                 'detections': detections,
                 'detection_count': len(detections),
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': timestamp.isoformat(),
                 'event_type': 'person_detection'
             }
             
@@ -192,11 +226,11 @@ class PersonDetector:
                 # Annotate frame with detections
                 annotated_frame = self.draw_detections(frame, detections)
                 
-                # Compress frame
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
-                _, buffer = cv2.imencode('.jpg', annotated_frame, encode_param)
-                frame_base64 = base64.b64encode(buffer).decode('utf-8')
-                event['frame'] = frame_base64
+                # Save frame to filesystem and get the path
+                frame_path = self.save_frame_to_filesystem(annotated_frame, camera_id, timestamp)
+                if frame_path:
+                    event['frame_path'] = frame_path
+                    logger.debug(f"Saved frame to: {frame_path}")
             
             logger.info(f"DETECTION EVENT - Camera: {camera_id} ({camera_name}), Persons: {len(detections)}")
             for i, detection in enumerate(detections):

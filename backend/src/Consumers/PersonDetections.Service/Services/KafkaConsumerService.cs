@@ -22,12 +22,15 @@ public class KafkaConsumerService : BackgroundService
         _logger = logger;
         _configuration = configuration;
 
+        var kafkaConnectionString = Environment.GetEnvironmentVariable("KAFKA_URL");
+        
         var config = new ConsumerConfig
         {
-            BootstrapServers = _configuration.GetConnectionString("Kafka") ?? "localhost:9092",
+            BootstrapServers = kafkaConnectionString,
             GroupId = "person-detection-consumer",
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = false
+            EnableAutoCommit = false,
+            ClientId = "person-detection-consumer-client"
         };
 
         _consumer = new ConsumerBuilder<Ignore, string>(config).Build();
@@ -37,7 +40,16 @@ public class KafkaConsumerService : BackgroundService
     {
         _logger.LogInformation("Kafka Consumer Service started");
         
-        _consumer.Subscribe("person-detection");
+        try
+        {   
+            _consumer.Subscribe("person-detection");
+            _logger.LogInformation("Successfully subscribed to topic: person-detection");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to connect to Kafka or subscribe to topic");
+            throw;
+        }
 
         try
         {

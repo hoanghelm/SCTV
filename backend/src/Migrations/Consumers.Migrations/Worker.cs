@@ -13,7 +13,7 @@ namespace PersonDetections.Migrations
 	IServiceProvider serviceProvider,
 	IHostApplicationLifetime hostApplicationLifetime) : BackgroundService
 	{
-		public const string ActivitySourceName = "Streaming.Migrations";
+		public const string ActivitySourceName = "Consumers.Migrations";
 		private static readonly ActivitySource s_activitySource = new(ActivitySourceName);
 
 		protected override async Task ExecuteAsync(CancellationToken cancellationToken)
