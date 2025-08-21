@@ -4,6 +4,7 @@ import { theme } from "../../styles/theme";
 import { Camera } from "../../types";
 import { StatusBadge } from "../common/StatusBadge";
 import { useVideo } from "../../hooks/useVideo";
+import { videoConnectionManager } from "../../services/videoConnectionManager";
 
 interface VideoStreamProps {
   camera: Camera;
@@ -142,6 +143,8 @@ export const VideoStream: React.FC<VideoStreamProps> = ({
     retry,
   } = useVideo(camera.id);
 
+  const [queuePosition, setQueuePosition] = React.useState<number>(-1);
+
   React.useEffect(() => {
     if (videoRef.current) {
       const video = videoRef.current;
@@ -155,11 +158,18 @@ export const VideoStream: React.FC<VideoStreamProps> = ({
 
   React.useEffect(() => {
     if (camera.status === "Active" && signalRConnected) {
-      const timeoutId = setTimeout(() => {
-        connect();
-      }, 100);
+      const priority = camera.priority || 0;
+      videoConnectionManager.queueConnection(camera.id, connect, priority);
 
-      return () => clearTimeout(timeoutId);
+      const checkQueuePosition = () => {
+        const position = videoConnectionManager.getQueuePosition(camera.id);
+        setQueuePosition(position);
+      };
+
+      const interval = setInterval(checkQueuePosition, 500);
+      checkQueuePosition();
+
+      return () => clearInterval(interval);
     }
   }, [camera.id, camera.status, signalRConnected, connect]);
 
@@ -268,7 +278,12 @@ export const VideoStream: React.FC<VideoStreamProps> = ({
         {signalRConnected &&
           !error &&
           (isLoading || status === "connecting") && (
-            <LoadingMessage>Connecting to {camera.name}...</LoadingMessage>
+            <LoadingMessage>
+              {queuePosition > 0 
+                ? `Queued for connection (${queuePosition} ahead)...`
+                : `Connecting to ${camera.name}...`
+              }
+            </LoadingMessage>
           )}
 
         {signalRConnected && !error && status === "reconnecting" && (

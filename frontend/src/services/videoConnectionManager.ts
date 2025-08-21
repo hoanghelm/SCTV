@@ -6,8 +6,19 @@ class VideoConnectionManager {
       lastAttempt: number;
       retryCount: number;
       peerConnection?: RTCPeerConnection;
+      priority?: number;
     }
   >();
+
+  private connectionQueue: Array<{
+    cameraId: string;
+    connectFn: () => Promise<void>;
+    priority: number;
+  }> = [];
+
+  private maxConcurrentConnections = 3;
+  private activeConnections = 0;
+  private processingQueue = false;
 
   private static instance: VideoConnectionManager;
 
@@ -98,6 +109,76 @@ class VideoConnectionManager {
       connection.peerConnection.close();
     }
     this.connections.delete(cameraId);
+    this.connectionQueue = this.connectionQueue.filter(
+      (item) => item.cameraId !== cameraId
+    );
+  }
+
+  queueConnection(
+    cameraId: string,
+    connectFn: () => Promise<void>,
+    priority: number = 0
+  ): void {
+    if (this.connections.get(cameraId)?.status === "connected") {
+      return;
+    }
+
+    this.connectionQueue = this.connectionQueue.filter(
+      (item) => item.cameraId !== cameraId
+    );
+
+    this.connectionQueue.push({ cameraId, connectFn, priority });
+    this.connectionQueue.sort((a, b) => b.priority - a.priority);
+
+    this.processQueue();
+  }
+
+  private async processQueue(): Promise<void> {
+    if (
+      this.processingQueue ||
+      this.activeConnections >= this.maxConcurrentConnections ||
+      this.connectionQueue.length === 0
+    ) {
+      return;
+    }
+
+    this.processingQueue = true;
+
+    while (
+      this.connectionQueue.length > 0 &&
+      this.activeConnections < this.maxConcurrentConnections
+    ) {
+      const item = this.connectionQueue.shift();
+      if (!item) break;
+
+      if (this.connections.get(item.cameraId)?.status === "connected") {
+        continue;
+      }
+
+      this.activeConnections++;
+      
+      item
+        .connectFn()
+        .catch((error) => {
+          console.error(`Connection failed for camera ${item.cameraId}:`, error);
+        })
+        .finally(() => {
+          this.activeConnections--;
+          this.processQueue();
+        });
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    this.processingQueue = false;
+  }
+
+  getQueuePosition(cameraId: string): number {
+    return this.connectionQueue.findIndex((item) => item.cameraId === cameraId);
+  }
+
+  setMaxConcurrentConnections(max: number): void {
+    this.maxConcurrentConnections = Math.max(1, max);
   }
 }
 

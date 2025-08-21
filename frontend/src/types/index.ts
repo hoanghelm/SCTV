@@ -7,6 +7,7 @@ export interface Camera {
   resolution: string;
   frameRate: number;
   testMode?: boolean;
+  priority?: number;
   createdAt?: string;
   updatedAt?: string;
 }
