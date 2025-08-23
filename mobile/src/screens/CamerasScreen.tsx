@@ -16,7 +16,7 @@ import { theme } from '../utils/theme';
 export const CamerasScreen: React.FC = () => {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [signalRConnected, setSignalRConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadCameras = async () => {
     try {

@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Image,
 } from 'react-native';
-import FastImage from 'react-native-fast-image';
 import { Camera, CameraStatus } from '../../types';
 import { theme } from '../../utils/theme';
 import { useVideo } from '../../hooks/useVideo';
@@ -82,13 +82,12 @@ export const CameraCard: React.FC<CameraCardProps> = ({
     >
       <View style={styles.videoContainer}>
         {status === 'connected' && streamUrl ? (
-          <FastImage
+          <Image
             source={{ 
               uri: `https://picsum.photos/400/300?random=${camera.id}`,
-              priority: FastImage.priority.normal,
             }}
-            style={styles.video as any}
-            resizeMode={FastImage.resizeMode.cover}
+            style={styles.video}
+            resizeMode="cover"
           />
         ) : (
           <View style={[styles.placeholder, { backgroundColor: theme.colors.surfaceAlt }]}>

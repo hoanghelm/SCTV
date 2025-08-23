@@ -1,13 +1,22 @@
 import axios from 'axios';
 import { Camera, CameraStatus } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api/v1';
+const API_BASE_URL = 'https://10.0.2.2:44322/api/v1/Stream';
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Accept': '*/*',
+    'Content-Type': 'application/json',
+  },
+});
 
 export class CameraService {
   async getCameras(): Promise<Camera[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/cameras`);
-      return response.data.data || [];
+      const response = await apiClient.get('/cameras');
+      return response.data || [];
     } catch (error) {
       console.error('Failed to fetch cameras:', error);
       return this.getMockCameras();
@@ -16,8 +25,8 @@ export class CameraService {
 
   async getCameraById(id: string): Promise<Camera | null> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/cameras/${id}`);
-      return response.data.data || null;
+      const response = await apiClient.get(`/cameras/${id}`);
+      return response.data || null;
     } catch (error) {
       console.error('Failed to fetch camera:', error);
       const mockCameras = this.getMockCameras();

@@ -2,8 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { CamerasScreen } from './src/screens/CamerasScreen';
-import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { CamerasScreen } from './src/screens';
+import { NotificationsScreen } from './src/screens';
 import { theme } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
