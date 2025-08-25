@@ -22,6 +22,8 @@ namespace PersonDetections.Infrastructure.Configures
 		{
 			services.AddService<ProcessPersonDetectionCommand, bool, ProcessPersonDetectionHandler>();
 			services.AddHostedService<KafkaConsumerService>();
+			services.AddScoped<HttpClient>();
+			services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
 
 			return services;
 		}

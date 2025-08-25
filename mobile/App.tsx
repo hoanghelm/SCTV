@@ -1,17 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { CamerasScreen } from './src/screens';
 import { NotificationsScreen } from './src/screens';
 import { theme } from './src/utils/theme';
+import NotificationService from './src/services/NotificationService';
 
 const Tab = createBottomTabNavigator();
 
 function App(): JSX.Element {
+  useEffect(() => {
+    NotificationService.initialize();
+  }, []);
+
   return (
     <NavigationContainer>
       <Tab.Navigator
+        initialRouteName="Notifications"
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
             let iconName: string;

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "667617209101",
+    "project_id": "sctv-1f86c",
+    "storage_bucket": "sctv-1f86c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:667617209101:android:4809b06c8acac15fbb5e44",
+        "android_client_info": {
+          "package_name": "com.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKrUftqGhz9PlWvRmbAL5q39NALHvrRnM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

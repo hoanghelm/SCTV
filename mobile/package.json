@@ -13,6 +13,8 @@
     "@babel/plugin-transform-class-properties": "^7.27.1",
     "@babel/plugin-transform-private-property-in-object": "^7.27.1",
     "@react-native-async-storage/async-storage": "^1.23.1",
+    "@react-native-firebase/app": "^23.1.1",
+    "@react-native-firebase/messaging": "^23.1.1",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/stack": "^6.3.20",

@@ -8,6 +8,9 @@
                 "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
                 "KAFKA_URL": "localhost:9092",
+                "FIREBASE_PROJECT_ID": "sctv-1f86c",
+                "FIREBASE_CLIENT_EMAIL": "firebase-adminsdk-fbsvc@sctv-1f86c.iam.gserviceaccount.com",
+                "FIREBASE_PRIVATE_KEY": "<Your key>",
                 "ASPNETCORE_ENVIRONMENT": "Development"
             }
         }
