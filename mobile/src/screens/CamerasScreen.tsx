@@ -22,7 +22,7 @@ export const CamerasScreen: React.FC = () => {
     try {
       setLoading(true);
       const camerasData = await cameraService.getCameras();
-      const sortedCameras = camerasData
+      const sortedCameras = (camerasData || [])
         .filter(camera => camera.status === 'Active')
         .sort((a, b) => (b.priority || 0) - (a.priority || 0));
       

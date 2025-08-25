@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Image,
 } from 'react-native';
+import { RTCView } from 'react-native-webrtc';
 import { Camera, CameraStatus } from '../../types';
 import { theme } from '../../utils/theme';
 import { useVideo } from '../../hooks/useVideo';
@@ -30,7 +30,8 @@ export const CameraCard: React.FC<CameraCardProps> = ({
     stats,
     isLoading,
     error,
-    streamUrl,
+    localStream,
+    remoteStream,
     connect,
     retry,
   } = useVideo(camera.id);
@@ -81,13 +82,13 @@ export const CameraCard: React.FC<CameraCardProps> = ({
       activeOpacity={0.8}
     >
       <View style={styles.videoContainer}>
-        {status === 'connected' && streamUrl ? (
-          <Image
-            source={{ 
-              uri: `https://picsum.photos/400/300?random=${camera.id}`,
-            }}
+        {status === 'connected' && remoteStream ? (
+          <RTCView
             style={styles.video}
-            resizeMode="cover"
+            streamURL={remoteStream.toURL()}
+            objectFit="cover"
+            mirror={false}
+            zOrder={0}
           />
         ) : (
           <View style={[styles.placeholder, { backgroundColor: theme.colors.surfaceAlt }]}>

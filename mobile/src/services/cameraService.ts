@@ -1,10 +1,9 @@
 import axios from 'axios';
 import { Camera, CameraStatus } from '../types';
-
-const API_BASE_URL = 'https://10.0.2.2:44322/api/v1/Stream';
+import { environment } from '../config/environment';
 
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: environment.API_BASE_URL,
   timeout: 10000,
   headers: {
     'Accept': '*/*',
@@ -16,7 +15,23 @@ export class CameraService {
   async getCameras(): Promise<Camera[]> {
     try {
       const response = await apiClient.get('/cameras');
-      return response.data || [];
+      
+      const data = response.data;
+      
+      if (data && data.success && data.result && Array.isArray(data.result.items)) {
+        return data.result.items;
+      }
+      
+      if (Array.isArray(data)) {
+        return data;
+      }
+      
+      if (data && Array.isArray(data.cameras)) {
+        return data.cameras;
+      }
+      
+      console.warn('Unexpected API response format:', data);
+      return this.getMockCameras();
     } catch (error) {
       console.error('Failed to fetch cameras:', error);
       return this.getMockCameras();
