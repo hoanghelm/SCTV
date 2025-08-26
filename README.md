@@ -59,8 +59,8 @@ See detailed installation guide: [docs/installations](docs/installations)
 
 ## System Workflows
 
-![Detecting Person Python](docs/workflows/detecting-person-python.png)
 ![Microservice Stream RTC Flow](docs/workflows/microservice-stream-rtc-flow.png)
+![Detecting Person Python](docs/workflows/detecting-person-python.png)
 ![Push Notifications](docs/workflows/push-notifications.png)
 ![WebRTC Shake Connection](docs/workflows/webrtc-shake-connection.png)
 
