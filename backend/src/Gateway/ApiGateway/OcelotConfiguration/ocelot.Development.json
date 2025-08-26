@@ -33,7 +33,28 @@
                 "userEmail": "Claims[email] > value > |",
                 "userName": "Claims[name] > value > |"
             },
-            "UpstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "UpstreamPathTemplate": "/api/v{version}/stream/{cathAll}",
+            "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+        },
+        {
+            "DownstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "DownstreamScheme": "https",
+            "DownstreamHostandPorts": [
+                {
+                    "Host": "localhost",
+                    "Port": "44338"
+                }
+            ],
+            "AuthenticationOptions": {
+                "AuthenticationProviderKey": "Bearer",
+                "AllowedScopes": []
+            },
+            "AddHeadersToRequest": {
+                "userId": "Claims[sub] > value > |",
+                "userEmail": "Claims[email] > value > |",
+                "userName": "Claims[name] > value > |"
+            },
+            "UpstreamPathTemplate": "/api/v{version}/notifications/{cathAll}",
             "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
         }
     ],

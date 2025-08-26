@@ -1,13 +1,23 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { CamerasScreen } from './src/screens';
-import { NotificationsScreen } from './src/screens';
+import { CamerasScreen, NotificationsScreen, NotificationDetailScreen } from './src/screens';
 import { theme } from './src/utils/theme';
 import NotificationService from './src/services/NotificationService';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+function NotificationStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="NotificationsList" component={NotificationsScreen} />
+      <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} />
+    </Stack.Navigator>
+  );
+}
 
 function App(): JSX.Element {
   useEffect(() => {
@@ -58,7 +68,7 @@ function App(): JSX.Element {
         />
         <Tab.Screen 
           name="Notifications" 
-          component={NotificationsScreen}
+          component={NotificationStack}
           options={{
             tabBarLabel: 'Notifications',
           }}

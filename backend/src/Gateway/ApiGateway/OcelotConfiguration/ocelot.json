@@ -16,11 +16,11 @@
             "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
         },
         {
-            "DownstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "DownstreamPathTemplate": "/api/v{version}/notifications/{cathAll}",
             "DownstreamScheme": "http",
             "DownstreamHostandPorts": [
                 {
-                    "Host": "post-service",
+                    "Host": "notifications-api",
                     "Port": "80"
                 }
             ],
@@ -31,7 +31,26 @@
             "AddHeadersToRequest": {
                 "userId": "Claims[sub] > value > |"
             },
-            "UpstreamPathTemplate": "/api/v{version}/{cathAll}",
+            "UpstreamPathTemplate": "/api/v{version}/notifications/{cathAll}",
+            "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
+        },
+        {
+            "DownstreamPathTemplate": "/api/v{version}/stream/{cathAll}",
+            "DownstreamScheme": "http", 
+            "DownstreamHostandPorts": [
+                {
+                    "Host": "streaming-api",
+                    "Port": "80"
+                }
+            ],
+            "AuthenticationOptions": {
+                "AuthenticationProviderKey": "Bearer",
+                "AllowedScopes": []
+            },
+            "AddHeadersToRequest": {
+                "userId": "Claims[sub] > value > |"
+            },
+            "UpstreamPathTemplate": "/api/v{version}/stream/{cathAll}",
             "UpstreamHttpMethod": [ "Put", "Delete", "Post", "Get" ]
         }
     ],

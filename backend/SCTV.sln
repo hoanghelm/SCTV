@@ -72,6 +72,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonDetections.Service", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Consumers.Migrations", "src\Migrations\Consumers.Migrations\Consumers.Migrations.csproj", "{BD92005D-570D-4216-8004-B28785588434}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.API", "src\Notifications\Notifications.API\Notifications.API.csproj", "{238302A6-5B3B-4A8A-8D88-C26693A8D8E1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -178,6 +180,10 @@ Global
 		{BD92005D-570D-4216-8004-B28785588434}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD92005D-570D-4216-8004-B28785588434}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD92005D-570D-4216-8004-B28785588434}.Release|Any CPU.Build.0 = Release|Any CPU
+		{238302A6-5B3B-4A8A-8D88-C26693A8D8E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{238302A6-5B3B-4A8A-8D88-C26693A8D8E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{238302A6-5B3B-4A8A-8D88-C26693A8D8E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{238302A6-5B3B-4A8A-8D88-C26693A8D8E1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -215,6 +221,7 @@ Global
 		{D03BA336-7D07-4F1F-A509-93C6FF0D5577} = {23D94F51-9A19-445C-A82E-B9519F27B893}
 		{A6ABC2B4-E2A7-43CB-B91E-2BA9CECB30E9} = {23D94F51-9A19-445C-A82E-B9519F27B893}
 		{BD92005D-570D-4216-8004-B28785588434} = {75D8D09E-209A-4D05-A396-816E984C1C50}
+		{238302A6-5B3B-4A8A-8D88-C26693A8D8E1} = {074D9047-CC45-4F1B-A2F1-DE578F53F8AB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E69F2BAE-EBBC-4794-9D67-E0944CAE8D1F}

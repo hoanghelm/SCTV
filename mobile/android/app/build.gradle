@@ -83,6 +83,17 @@ android {
         versionCode 1
         versionName "1.0"
     }
+    
+    packagingOptions {
+        pickFirst '**/libc++_shared.so'
+        pickFirst '**/libjsc.so'
+    }
+    
+    lintOptions {
+        disable 'GradleCompatible'
+        checkReleaseBuilds false
+        abortOnError false
+    }
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

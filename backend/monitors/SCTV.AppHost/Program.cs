@@ -14,6 +14,10 @@ var streamingApi = builder.AddProject<Projects.Streaming_API>("StreamingApi")
 	.WithReference(streamingMigrations)
 	.WaitForCompletion(streamingMigrations);
 
+var notificationApi = builder.AddProject<Projects.Notifications_API>("NotificationsApi")
+	.WithReference(consumersMigrations)
+	.WaitForCompletion(consumersMigrations);
+
 var personDetectionsConsumers = builder.AddProject<Projects.PersonDetections_Consumers>("PersonDetectionsConsumers")
 	.WithReference(consumersMigrations)
 	.WaitForCompletion(consumersMigrations);

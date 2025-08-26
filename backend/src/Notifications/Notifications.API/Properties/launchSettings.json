@@ -1,0 +1,47 @@
+﻿{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:25768",
+      "sslPort": 44338
+    }
+  },
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:25768",
+        "environmentVariables": {
+            "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+            "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+            "ASPNETCORE_ENVIRONMENT": "Development"
+        }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:44338;http://localhost:25768",
+        "environmentVariables": {
+            "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+            "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+            "ASPNETCORE_ENVIRONMENT": "Development"
+        }
+    },
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+        "environmentVariables": {
+            "WRITE_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+            "READ_DATABASE_CONNECTION_STRING": "Host=localhost;port=5432;Database=SCTV;Username=postgres;Password=postgres",
+            "ASPNETCORE_ENVIRONMENT": "Development"
+        }
+    }
+  }
+}

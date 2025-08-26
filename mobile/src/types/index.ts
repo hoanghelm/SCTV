@@ -34,6 +34,25 @@ export interface PersonDetectionEvent {
   frameImageBase64?: string;
 }
 
+export interface PersonDetectionNotification {
+  id: string;
+  cameraId: string;
+  cameraName: string;
+  eventType: string;
+  eventTimestamp: string;
+  detectionCount: number;
+  detectionsData: string;
+  frameStoragePath?: string;
+  createdAt?: string;
+}
+
+export interface NotificationListResponse {
+  items: PersonDetectionNotification[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface VideoStats {
   fps: number;
   bitrate: number;

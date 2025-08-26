@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\Migrations\Auth.Migrations\Auth.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Migrations\Consumers.Migrations\Consumers.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Migrations\Streaming.Migrations\Streaming.Migrations.csproj" />
+    <ProjectReference Include="..\..\src\Notifications\Notifications.API\Notifications.API.csproj" />
     <ProjectReference Include="..\..\src\Streaming\Streaming.API\Streaming.API.csproj" />
   </ItemGroup>
 
