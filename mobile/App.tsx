@@ -27,7 +27,7 @@ function App(): JSX.Element {
   return (
     <NavigationContainer>
       <Tab.Navigator
-        initialRouteName="Notifications"
+        initialRouteName="Cameras"
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
             let iconName: string;

@@ -75,6 +75,7 @@ See detailed installation guide: [docs/installations](docs/installations)
 ![Mobile Camera Views](docs/demos/mobile-camera-views.png)
 ![Mobile Notifications](docs/demos/mobile-notifications.png)
 ![Python Detections](docs/demos/python-detections.png)
+![WebRTC Traces](docs/demos/webrtc-traces.png)
 
 ### Video Demo
 
