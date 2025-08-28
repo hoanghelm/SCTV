@@ -74,6 +74,7 @@ See detailed installation guide: [docs/installations](docs/installations)
 ![Frontend Detections](docs/demos/frontend-detections.png)
 ![Mobile Camera Views](docs/demos/mobile-camera-views.png)
 ![Mobile Notifications](docs/demos/mobile-notifications.png)
+![Mobile Notifications Detail View](docs/demos/mobile-notification-details.png)
 ![Python Detections](docs/demos/python-detections.png)
 ![WebRTC Traces](docs/demos/webrtc-traces.png)
 
